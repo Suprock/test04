@@ -1,11 +1,17 @@
 from flask import *
+import paramiko
+from paramiko.client import AutoAddPolicy
 from proj_info import *
 import os, time
 from flask_socketio import *
+import _thread
+from paramiko import SSHClient, SFTPClient
 
-project_info_path = ""
+global project_info_path
 pangu_install_zip_path = "file/pangu_auto_install.zip"
-manager_node_ip = ""
+global manager_node_ip
+global manager_node_username
+global manager_node_password
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -21,6 +27,10 @@ def index():
 
 @app.route("/proj_info", methods=["POST", "GET"])
 def proj_info():
+    global manager_node_ip
+    global manager_node_username
+    global manager_node_password
+    global project_info_path
     if request.method == "GET":
         index_info = {"topic":"盘古自动部署工具",
         "steps":[{"name":"项目配置", "is_active":True}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
@@ -47,10 +57,14 @@ def proj_info():
             # 只需要一个节点，则第一个节点为devops-manager节点
             devices_info = manager_node.format(1, devices[0][0], devices[0][1], devices[0][2],local_service)
             manager_node_ip = devices[0][0]
+            manager_node_username = devices[0][1]
+            manager_node_password = devices[0][2]
         elif arr_service_info[0][1] != "" and len(devices) == 1:
             local_service = "pangu,gmp,core,iot,gsp"
             devices_info = manager_node.format(1, devices[0][0], devices[0][1], devices[0][2],local_service)
             manager_node_ip = devices[0][0]
+            manager_node_username = devices[0][1]
+            manager_node_password = devices[0][2]
         elif arr_service_info[0][1] != "" or len(arr_service_info) > 1:
             #只针对第一台算力和第一台业务分配服务
             is_first_busi = True
@@ -62,6 +76,8 @@ def proj_info():
                     str_node = manager_node
                     index = 1
                     manager_node_ip = device[0]
+                    manager_node_username = devices[1]
+                    manager_node_password = devices[2]
                 else:
                     str_node = agent_node
                     index = i
@@ -98,7 +114,7 @@ def proj_info():
         file.write(real_proj_info)
         file.close()
 
-        project_info_path = real_path
+        project_info_path = "./" + real_path + "/" + "project_info"
 
         return jsonify({"status":200,"result":"OK"})
 
@@ -115,7 +131,11 @@ def upload_img():
         # TBD 传镜像到images文件夹下
         data = request.get_json()
         print(data)
-        return jsonify({"status":200,"result":"OK"})
+        ret, value = check_imgs(data["file_path"])
+        if ret == True:
+            return jsonify({"status":200,"result":"OK"})
+        else:
+            return jsonify({"status":400,"result":"FALSE"})
         
 @app.route("/tools")
 def tools():
@@ -148,15 +168,75 @@ def test1():
     print(data)
     return redirect("/test")
 
+def check_imgs(file_path):
+    if(os.path.exists(file_path)):
+        print(os.listdir(file_path))
+        return True,""
+    else:
+        return False,""
+
+class FileToUpload:
+    def __init__(self, name, local_file_path, remote_file_path) -> None:
+        self._name = name
+        self._local_file_path = local_file_path
+        self._remote_file_path = remote_file_path
+        self._upload_status = False
+    
+    def upload_file(self, manager_node_ip, manager_node_username, manager_node_password):
+        tran = paramiko.Transport((manager_node_ip,22))
+        tran.connect(username=manager_node_username, password=manager_node_password)
+        sftp = paramiko.SFTPClient.from_transport(tran)
+        sftp.put(localpath=self._local_file_path, remotepath=self._remote_file_path, callback=self.upload_status)
+        tran.close()
+        sftp.close()
+
+    def upload_status(self, bytes, max_bytes):
+        socketio.emit("upload_status", {"filename":self._name, "bytes":bytes, "max_bytes":max_bytes})
+        if bytes == max_bytes:
+            self._upload_status = True
+            print("上传完毕")
+
+
 
 # socket 函数
 @socketio.on("upload")
 def upload_img_socket(data):
+    global manager_node_ip
+    global manager_node_username
+    global manager_node_password
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
+    files_to_upload = []
+    try:
+        # 上传pangu_auto_install 工具包
+        pangu_auto_install_zip_name = "pangu_auto_install-master_202220104.zip"
+        pangu_auto_install_zip_path = "file/pangu_auto_install/{}".format(pangu_auto_install_zip_name)
+        remote_pangu_auto_install_zip_path = "/home/security/{}".format(pangu_auto_install_zip_name)
+        name = "pangu_auto_install"
+        file_pangu_install_zip = FileToUpload(name, pangu_auto_install_zip_path, remote_pangu_auto_install_zip_path)
+        file_pangu_install_zip.upload_file(manager_node_ip, manager_node_username, manager_node_password)
+
+        # 对工具进行解压操作以及初始化操作
+        command_unzip = "unzip {}".format(pangu_auto_install_zip_name)
+        client = SSHClient()
+        client.set_missing_host_key_policy(AutoAddPolicy())
+        client.connect(hostname=manager_node_ip, port=22, username=manager_node_username, password=manager_node_password)
+        stdin, stdout, stderr = client.exec_command(command_unzip)
+        print(stdout.readlines())
+        
+        command_exec_config = "bash ./pangu_auto_install-master/config.sh"
+        stdin, stdout, stderr = client.exec_command(command_exec_config)
+        print(stdout.readlines())
+
+        client.close()
+    except Exception as e:
+        print("有错误{}".format(e))
+    
+   
+
     # socketio.start_background_task()
-    for i in range(1,100):
-        socketio.emit("log_on", "第{}条信息。".format(i))
-        time.sleep(1)
+    # for i in range(1,100):
+    #     socketio.emit("log_on", "第{}条信息。".format(i))
+    #     time.sleep(1)
 
 
 # # 常用函数

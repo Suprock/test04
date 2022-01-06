@@ -31,14 +31,16 @@
 </div>
 {% endblock %}
 {% block js %}
-<script src="{{ url_for('static', filename='js/socket.io.js') }}" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script type="text/javascript" charset="utf-8">
     function send_img_dir(obj)
     {
-        imgs_path = document.getElementById("file_path").value;
+        var imgs_path = document.getElementById("file_path").value;
+        imgs_path.replace(/\\/g, '\\\\');
+        var json_str = JSON.stringify({"file_path":imgs_path});
         $.ajax({
             url: "{{ url_for('upload_img') }}",
-            data: imgs_path,
+            data: json_str,
             type:"post",
             contentType:"application/json",
             dataType:"json",
@@ -64,6 +66,36 @@
             var new_log = document.createElement("p");
             new_log.innerHTML = res;
             elem_log.appendChild(new_log);
+        }
+        );
+        socket.on("upload_status", function(data)
+        {
+            if(!document.getElementById(data["filename"]))
+            {
+                var node_project_info_status = document.createElement("div");
+                node_project_info_status.id = data["filename"];
+                var label_project_info = document.createElement("label");
+                label_project_info.innerHTML = data["filename"] + "上传进度";
+                node_project_info_status.appendChild(label_project_info);
+                var progress_project_info = document.createElement("div");
+                progress_project_info.className = "progress";
+                progress_project_info.id = data["filename"] + "_status";
+                var percent_value = data["bytes"]/data["max_bytes"] * 100;
+                progress_project_info.innerHTML = '<div class="progress-bar" role="progressbar" style="width: '+ percent_value +'%;" aria-valuenow="'+percent_value+'" aria-valuemin="0" aria-valuemax="100">'+percent_value+'%</div>';
+                node_project_info_status.appendChild(progress_project_info);
+                var node_log = document.getElementById("upload_img_log");
+                node_log.appendChild(node_project_info_status);
+            }
+            else
+            {
+                var progress_project_info = document.getElementById(data["filename"] + "_status");
+                var percent_value = data["bytes"]/data["max_bytes"] * 100;
+                progress_project_info.innerHTML = '<div class="progress-bar" role="progressbar" style="width: '+ percent_value +'%;" aria-valuenow="'+percent_value+'" aria-valuemin="0" aria-valuemax="100">'+percent_value+'%</div>';
+            }
+        });
+        socket.on("disconnect", function()
+        {
+            console.log("disconnected");
         }
         );
     }  

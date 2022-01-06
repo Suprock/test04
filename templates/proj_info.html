@@ -251,7 +251,7 @@ function sub_core_server_row(obj)
 {
     var tb = obj.parentNode.parentNode.parentNode;
     var sub_row = obj.parentNode.parentNode;
-    if(tb.childNodes.length > 5)
+    if(tb.childNodes.length > 3)
         tb.removeChild(sub_row);
 }
 
@@ -351,7 +351,7 @@ function from_submit(obj)
         }
     }
     var dict = {"proj_name": proj_name, "pangu_version":pangu_version, "is_HA":is_HA, "VIP_ip":VIP_ip, "is_soft":is_soft, "dongle_ip":dongle_ip, "is_profilo":is_profile,"is_face_body":is_face_body,
-"algowarehouseA":algowarehouseAA, "algowarehouseB":algowarehouseB, "algowarehouseC":algowarehouseC, "algowarehouseD":algowarehouseD,"arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
+"algowarehouseA":algowarehouseA, "algowarehouseB":algowarehouseB, "algowarehouseC":algowarehouseC, "algowarehouseD":algowarehouseD,"arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
     var json_dict = JSON.stringify(dict);
     console.log(json_dict)
 
