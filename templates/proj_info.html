@@ -94,13 +94,15 @@
         <div class="col-10" id="core_services">
             <div class="row">
                 <div class="col-5">
-                    <select name="core_service_1" id="core_service_1" class="form-select">
+                    <select name="core_service_1" id="core_service_1" class="form-select" onchange="check_core_service(this)">
                         <option value="1">人脸视频流</option>
                         <option value="2">人脸抓拍流</option>
                         <option value="3">结构化视频流</option>
                         <option value="4">结构化抓拍流</option>
-                        <option value="5">算法仓1</option>
-                        <option value="6">算法仓2</option>
+                        <option value="5">警戒算法仓</option>
+                        <option value="6">安监算法仓</option>
+                        <option value="8">物品算法仓</option>
+                        <option value="9">人数统计算法仓</option>
                         <option value="7">archer</option>
                     </select>
                 </div>
@@ -114,17 +116,31 @@
             </div>
         </div>
     </div>
-    <div class="mb-3 row justify-content-left">
-        <label class="form-label col-form-label col-2">算法仓1镜像</label> 
-        <div class="col-10">
-            <input class="form-control" type="text" name="algowarehouse1" id="algowarehouse1" placeholder="如果没有算法仓则不填">
+    <div class="mb-3 row justify-content-left" id="algowarehouse_imgs">
+        <div class="row">
+            <label class="form-label col-form-label col-2">警戒算法仓</label> 
+            <div class="col-10">
+                <input class="form-control" type="text" name="algowarehouseA" id="algowarehouseA" placeholder="如果没有算法仓则不填">
+            </div>
         </div>
-    </div>
-    <div class="mb-3 row justify-content-left">
-        <label class="form-label col-form-label col-2">算法仓2镜像</label> 
-        <div class="col-10">
-            <input class="form-control" type="text" name="algowarehouse2" id="algowarehouse2" placeholder="如果没有算法仓则不填">
+        <div class="row mt-3">
+            <label class="form-label col-form-label col-2">安监算法仓</label> 
+            <div class="col-10">
+                <input class="form-control" type="text" name="algowarehouseB" id="algowarehouseB" placeholder="如果没有算法仓则不填">
+            </div>
         </div>
+        <div class="row mt-3">
+            <label class="form-label col-form-label col-2">物品算法仓</label> 
+            <div class="col-10">
+                <input class="form-control" type="text" name="algowarehouseC" id="algowarehouseC" placeholder="如果没有算法仓则不填">
+            </div>
+        </div>
+        <div class="row mt-3">
+            <label class="form-label col-form-label col-2">人数统计算法仓</label> 
+            <div class="col-10">
+                <input class="form-control" type="text" name="algowarehouseD" id="algowarehouseD" placeholder="如果没有算法仓则不填">
+            </div>
+        </div>    
     </div>
     <div class="mb-3 row justify-content-left">
         <label class="form-label col-form-label col-2">设备信息</label> 
@@ -165,7 +181,7 @@ function add_row(obj)
     var tb = obj.parentNode.parentNode.parentNode;
     var id = tb.childNodes.length-1;
     var row = document.createElement("div");
-    row.className = "row"
+    row.className = "row mt-3"
     row.innerHTML = '<div class="col-md-3">\
                     <input type="text" class="form-control" name="IP_'+ id +'" placeholder="IP">\
                 </div>\
@@ -193,15 +209,17 @@ function add_core_server_row(obj)
     var tb = obj.parentNode.parentNode.parentNode;
     var id = tb.childNodes.length-1;
     var row = document.createElement("div");
-    row.className = "row"
+    row.className = "row mt-3"
     row.innerHTML = '<div class="col-5">\
-                    <select name="core_service_'+ id +'" id="core_service_'+ id +'" class="form-select">\
+                    <select name="core_service_'+ id +'" id="core_service_'+ id +'" class="form-select" onchange="check_core_service(this)>\
                         <option value="1">人脸视频流</option>\
                         <option value="2">人脸抓拍流</option>\
                         <option value="3">结构化视频流</option>\
                         <option value="4">结构化抓拍流</option>\
-                        <option value="5">算法仓1</option>\
-                        <option value="6">算法仓2</option>\
+                        <option value="5">警戒算法仓</option>\
+                        <option value="6">安监算法仓</option>\
+                        <option value="8">物品算法仓</option>\
+                        <option value="9">人数统计算法仓</option>\
                         <option value="7">archer</option>\
                     </select>\
                 </div>\
@@ -213,6 +231,12 @@ function add_core_server_row(obj)
                     <button class="btn btn-light" type="button" onclick="sub_core_server_row(this)">-</button>\
                 </div>'
     tb.appendChild(row);
+}
+
+// 第一个版本不实现动态页面调整
+function check_core_service(obj)
+{
+    
 }
 
 function sub_row(obj)
@@ -256,8 +280,10 @@ function from_submit(obj)
     }
     var is_profile = document.getElementById("is_profile").value;
     var is_face_body = document.getElementById("is_face_body").value;
-    var algowarehouse1 = document.getElementById("algowarehouse1").value;
-    var algowarehouse2 = document.getElementById("algowarehouse2").value;
+    var algowarehouseA = document.getElementById("algowarehouseA").value;
+    var algowarehouseB = document.getElementById("algowarehouseB").value;
+    var algowarehouseC = document.getElementById("algowarehouseC").value;
+    var algowarehouseD = document.getElementById("algowarehouseD").value;
     var arr_service_info = [];
     var childs = document.getElementById("core_services").children;
     for(var i=0; i < childs.length; i++)
@@ -271,14 +297,24 @@ function from_submit(obj)
             alert("请填写服务所占显卡数目！");
             return;
         }
-        if(node_service_info[0].firstElementChild.value == "5" && algowarehouse1 == "")
+        if(node_service_info[0].firstElementChild.value == "5" && algowarehouseA == "")
         {
-            alert("请填写algowarehouse1的镜像名称！");
+            alert("请填写警戒算法仓的镜像名称！");
             return;
         }
-        if(node_service_info[0].firstElementChild.value == "6" && algowarehouse2 == "")
+        if(node_service_info[0].firstElementChild.value == "6" && algowarehouseB == "")
         {
-            alert("请填写algowarehouse2的镜像名称！");
+            alert("请填写安监算法仓的镜像名称！");
+            return;
+        }
+        if(node_service_info[0].firstElementChild.value == "8" && algowarehouseC == "")
+        {
+            alert("请填写物品算法仓的镜像名称！");
+            return;
+        }
+        if(node_service_info[0].firstElementChild.value == "9" && algowarehouseD == "")
+        {
+            alert("请填写人数统计算法仓的镜像名称！");
             return;
         }
         console.log(node_service_info[1].innerHTML)
@@ -315,7 +351,7 @@ function from_submit(obj)
         }
     }
     var dict = {"proj_name": proj_name, "pangu_version":pangu_version, "is_HA":is_HA, "VIP_ip":VIP_ip, "is_soft":is_soft, "dongle_ip":dongle_ip, "is_profilo":is_profile,"is_face_body":is_face_body,
-"algowarehouse1":algowarehouse1, "algowarehouse2":algowarehouse2, "arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
+"algowarehouseA":algowarehouseAA, "algowarehouseB":algowarehouseB, "algowarehouseC":algowarehouseC, "algowarehouseD":algowarehouseD,"arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
     var json_dict = JSON.stringify(dict);
     console.log(json_dict)
 

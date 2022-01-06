@@ -81,8 +81,10 @@ def proj_info():
         str_services_info,
         data["is_profilo"],
         data["is_face_body"],
-        data["algowarehouse1"],
-        data["algowarehouse2"]
+        data["algowarehouseA"],
+        data["algowarehouseB"],
+        data["algowarehouseC"],
+        data["algowarehouseD"]
         )
         real_proj_info += devices_info
         
@@ -168,8 +170,10 @@ core_sevices = {
     "2":"faced-capture",
     "3":"videod-engine",
     "4":"videod-capture",
-    "5":"algowarehouse1",
-    "6":"algowarehouse2",
-    "7":"archer"
+    "5":"algowarehouseA",
+    "6":"algowarehouseB",
+    "7":"archer",
+    "8":"algowarehouseC",
+    "9":"algowarehouseD"
 }
     
