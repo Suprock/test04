@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}项目信息配置{% endblock %}
+{% block steps %}
+<ul class="nav nav-pills flex-column" style="height: 700px;">
+    {% for step in index_info.steps %}
+        <li class="nav-item">
+            {% if step.is_active == True %}
+                <div class="nav-link active" aria-current="page">
+            {% else %}
+                <div class="nav-link" aria-current="page">
+            {% endif %}
+            <svg class="bi me-2" width="16" height="16"></svg>
+            {{ step.name }}
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
+
+{% block content %}
+
+<form>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">项目名称</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="proj_name" id="proj_name" placeholder="请输入项目名称">
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">盘古版本</label> 
+        <div class="col-10">
+            <!-- <input class="form-control" type="text" name="proj_name"> -->
+            <select name="pangu_version" id="pangu_version" class="form-select">
+                <option value="1.0.2RC1">1.0.2RC1</option>
+                <option value="1.0.2RC2">1.0.2RC2</option>
+                <option value="1.0.5RC1">1.0.5RC1</option>
+                <option value="1.0.6RC3">1.0.6RC3</option>
+                <option value="1.0.6.1">1.0.6.1</option>
+                <option value="1.1.0" selected>1.1.0</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">是否使用软狗</label> 
+        <div class="col-10">
+            <!-- <input class="form-control" type="text" name="proj_name"> -->
+            <select name="is_soft" id="is_soft" class="form-select">
+                <option value="true">是</option>
+                <option value="false" selected>否</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">加密狗IP</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="dongle_ip" id="dongle_ip" placeholder="请输入加密狗所在节点IP">
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">是否使用HA</label> 
+        <div class="col-10">
+            <select name="is_HA" id="is_HA" class="form-select">
+                <option value="true">是</option>
+                <option value="false" selected>否</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">VIP IP</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="VIP_ip" id="VIP_ip" placeholder="HA为否，则不填">
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">一人一档</label> 
+        <div class="col-10">
+            <select name="is_profile" id="is_profile" class="form-select">
+                <option value="true">是</option>
+                <option value="false" selected>否</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">脸人绑定</label> 
+        <div class="col-10">
+            <select name="is_face_body" id="is_face_body" class="form-select">
+                <option value="true">是</option>
+                <option value="false" selected>否</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">core服务</label> 
+        <div class="col-10" id="core_services">
+            <div class="row">
+                <div class="col-5">
+                    <select name="core_service_1" id="core_service_1" class="form-select">
+                        <option value="1">人脸视频流</option>
+                        <option value="2">人脸抓拍流</option>
+                        <option value="3">结构化视频流</option>
+                        <option value="4">结构化抓拍流</option>
+                        <option value="5">算法仓1</option>
+                        <option value="6">算法仓2</option>
+                        <option value="7">archer</option>
+                    </select>
+                </div>
+                <div class="col-5">
+                    <input type="text" class="form-control" name="core_service_num_1" placeholder="请输入显卡数">
+                </div>
+                <div class="col-2">
+                    <button class="btn btn-primary" type="button" onclick="add_core_server_row(this)">+</button>
+                    <button class="btn btn-light" type="button" onclick="sub_core_server_row(this)">-</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">算法仓1镜像</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="algowarehouse1" id="algowarehouse1" placeholder="如果没有算法仓则不填">
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">算法仓2镜像</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="algowarehouse2" id="algowarehouse2" placeholder="如果没有算法仓则不填">
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">设备信息</label> 
+        <div class="col-10" id="devices_info">
+            <div class="row">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="IP_1" placeholder="IP">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" name="username_1" placeholder="用户名">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="password_1" placeholder="密码">
+                </div>
+                <div class="col-md-2">
+                    <select name="server_type_1" id="server_type" class="form-select">
+                        <option value="1">业务</option>
+                        <option value="2">算力</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary" type="button" onclick="add_row(this)">+</button>
+                    <button class="btn btn-light" type="button" onclick="sub_row(this)">-</button>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <button class="btn btn-primary" type="button" onclick="from_submit(this.form)">下一步</button>
+</form>
+
+{% endblock %}
+
+{% block js %}
+<script>
+function add_row(obj)
+{
+    var tb = obj.parentNode.parentNode.parentNode;
+    var id = tb.childNodes.length-1;
+    var row = document.createElement("div");
+    row.className = "row"
+    row.innerHTML = '<div class="col-md-3">\
+                    <input type="text" class="form-control" name="IP_'+ id +'" placeholder="IP">\
+                </div>\
+                <div class="col-md-2">\
+                    <input type="text" class="form-control" name="username_'+ id +'" placeholder="用户名">\
+                </div>\
+                <div class="col-md-3">\
+                    <input type="text" class="form-control" name="password_'+ id +'" placeholder="密码">\
+                </div>\
+                <div class="col-md-2">\
+                    <select name="server_type_'+ id +'" id="server_type" class="form-select">\
+                        <option value="1">业务</option>\
+                        <option value="2">算力</option>\
+                    </select>\
+                </div>\
+                <div class="col-md-2">\
+                    <button class="btn btn-primary" type="button" onclick="add_row(this)">+</button>\
+                    <button class="btn btn-light" type="button" onclick=sub_row(this)>-</button>\
+                </div>'
+    tb.appendChild(row)
+}
+
+function add_core_server_row(obj)
+{
+    var tb = obj.parentNode.parentNode.parentNode;
+    var id = tb.childNodes.length-1;
+    var row = document.createElement("div");
+    row.className = "row"
+    row.innerHTML = '<div class="col-5">\
+                    <select name="core_service_'+ id +'" id="core_service_'+ id +'" class="form-select">\
+                        <option value="1">人脸视频流</option>\
+                        <option value="2">人脸抓拍流</option>\
+                        <option value="3">结构化视频流</option>\
+                        <option value="4">结构化抓拍流</option>\
+                        <option value="5">算法仓1</option>\
+                        <option value="6">算法仓2</option>\
+                        <option value="7">archer</option>\
+                    </select>\
+                </div>\
+                <div class="col-5">\
+                    <input type="text" class="form-control" name="core_server_num_'+ id +'" placeholder="请输入显卡数">\
+                </div>\
+                <div class="col-2">\
+                    <button class="btn btn-primary" type="button" onclick="add_core_server_row(this)">+</button>\
+                    <button class="btn btn-light" type="button" onclick="sub_core_server_row(this)">-</button>\
+                </div>'
+    tb.appendChild(row);
+}
+
+function sub_row(obj)
+{
+    var tb = obj.parentNode.parentNode.parentNode;
+    var sub_row = obj.parentNode.parentNode;
+    if(tb.childNodes.length > 3)
+        tb.removeChild(sub_row);
+}
+
+function sub_core_server_row(obj)
+{
+    var tb = obj.parentNode.parentNode.parentNode;
+    var sub_row = obj.parentNode.parentNode;
+    if(tb.childNodes.length > 5)
+        tb.removeChild(sub_row);
+}
+
+function from_submit(obj)
+{
+    var proj_name = document.getElementById("proj_name").value;
+    if (proj_name =="")
+    {
+        alert("请填写项目名称！");
+        return;
+    }
+    var pangu_version = document.getElementById("pangu_version").value;
+    var is_HA = document.getElementById("is_HA").value;
+    var VIP_ip = document.getElementById("VIP_ip").value;
+    if(is_HA == "true" && VIP_ip == "")
+    {
+        alert("当部署HA时必须填写VIP！");
+        return;
+    }
+    var is_soft = document.getElementById("is_soft").value;
+    var dongle_ip = document.getElementById("dongle_ip").value;
+    if(dongle_ip == "")
+    {
+        alert("请填写加密狗所在节点IP！");
+        return;
+    }
+    var is_profile = document.getElementById("is_profile").value;
+    var is_face_body = document.getElementById("is_face_body").value;
+    var algowarehouse1 = document.getElementById("algowarehouse1").value;
+    var algowarehouse2 = document.getElementById("algowarehouse2").value;
+    var arr_service_info = [];
+    var childs = document.getElementById("core_services").children;
+    for(var i=0; i < childs.length; i++)
+    {
+        var node_service_info = childs[i].children;
+        var core_server_name = node_service_info[0].firstElementChild.value;
+        var server_num = node_service_info[1].firstElementChild.value;
+        console.log(server_num);
+        if(childs.length > 1 && server_num == "")
+        {
+            alert("请填写服务所占显卡数目！");
+            return;
+        }
+        if(node_service_info[0].firstElementChild.value == "5" && algowarehouse1 == "")
+        {
+            alert("请填写algowarehouse1的镜像名称！");
+            return;
+        }
+        if(node_service_info[0].firstElementChild.value == "6" && algowarehouse2 == "")
+        {
+            alert("请填写algowarehouse2的镜像名称！");
+            return;
+        }
+        console.log(node_service_info[1].innerHTML)
+        var service_info = [core_server_name, server_num];
+        arr_service_info.push(service_info);
+    }
+    var arr_devices_info =[];
+    childs = document.getElementById("devices_info").children;
+    for(var i =0; i < childs.length; i++)
+    {
+        var node_device_info = childs[i].children;
+        if(node_device_info[0].firstElementChild.value=="" || node_device_info[1].firstElementChild.value=="" || node_device_info[2].firstElementChild.value=="")
+        {
+            alert("请完整填写设备IP，用户名，密码！");
+            return;
+        }
+        var device_info = [node_device_info[0].firstElementChild.value, node_device_info[1].firstElementChild.value, node_device_info[2].firstElementChild.value, node_device_info[3].firstElementChild.value];
+        arr_devices_info.push(device_info);
+    }
+    if (arr_service_info[0][1] != "")
+    {
+        var is_core_service = 0;
+        for(var i = 0;i<arr_devices_info.length; i++)
+        {
+            if(arr_devices_info[i][3] == "2")
+            {
+                is_core_service = 1;
+            }
+        }
+        if (is_core_service == 0)
+        {
+            alert("存在core服务但是没有算力服务器！");
+            return;
+        }
+    }
+    var dict = {"proj_name": proj_name, "pangu_version":pangu_version, "is_HA":is_HA, "VIP_ip":VIP_ip, "is_soft":is_soft, "dongle_ip":dongle_ip, "is_profilo":is_profile,"is_face_body":is_face_body,
+"algowarehouse1":algowarehouse1, "algowarehouse2":algowarehouse2, "arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
+    var json_dict = JSON.stringify(dict);
+    console.log(json_dict)
+
+    $.ajax({
+            url: "{{ url_for('proj_info') }}",
+            data: json_dict,
+            type:"post",
+            contentType:"application/json",
+            dataType:"json",
+            success: function (data) {
+                console.log(data)
+                window.location.href="{{ url_for('upload_img') }}"
+            }
+        })
+}
+</script>
+{% endblock %}
+
+
+
+
+

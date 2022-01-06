@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}上传镜像{% endblock %}
+{% block steps %}
+<ul class="nav nav-pills flex-column" style="height: 700px;">
+    {% for step in index_info.steps %}
+        <li class="nav-item">
+            {% if step.is_active == True %}
+                <div class="nav-link active" aria-current="page">
+            {% else %}
+                <div class="nav-link" aria-current="page">
+            {% endif %}
+            <svg class="bi me-2" width="16" height="16"></svg>
+            {{ step.name }}
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
+{% block content %}
+<form id="img_dir_path">
+    <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">镜像文件夹</label> 
+        <div class="col-10">
+            <input class="form-control" type="text" name="file_path" id="file_path" placeholder="请输入镜像所在文件夹">
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="send_img_dir(this.form)">上传</button>
+    <hr>
+</form>
+<div class="upload_img_log pre-scrollable" id="upload_img_log">
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/socket.io.js') }}" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+<script type="text/javascript" charset="utf-8">
+    function send_img_dir(obj)
+    {
+        imgs_path = document.getElementById("file_path").value;
+        $.ajax({
+            url: "{{ url_for('upload_img') }}",
+            data: imgs_path,
+            type:"post",
+            contentType:"application/json",
+            dataType:"json",
+            success: function (data) {
+                console.log(data);
+                get_log();
+            },
+            error: function(data){
+                console.log(data);
+            }
+        });
+    }
+    
+    function get_log()
+    {
+        var socket = io();
+        socket.on('connect', function() {
+            socket.emit('upload', {data: 'upload done'});
+        });
+        socket.on("log_on", function(res)
+        {
+            var elem_log = document.getElementById("upload_img_log");
+            var new_log = document.createElement("p");
+            new_log.innerHTML = res;
+            elem_log.appendChild(new_log);
+        }
+        );
+    }  
+</script>
+{% endblock %}
+
+
+
+

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="d-flex justify-content-center py-3">
+          <ul class="nav nav-pills">
+            <li class="nav-item"><a href="#" class="nav-link active" aria-current="page">自动部署工具</a></li>
+            <li class="nav-item"><a href="#" class="nav-link">小工具</a></li>
+          </ul>
+        </header>
+      </div>
+    <div class="container">
+        <div class="d-flex flex-column flex-shrink-0 p-3 bg-light" style="width: 280px;">
+            <!-- <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+              <svg class="bi me-2" width="40" height="32"><use xlink:href="#bootstrap"></use></svg>
+              <span class="fs-4">Sidebar</span>
+            </a> -->
+            <div class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+                <div class="fs-4">盘古自动部署工具</div> 
+            </div>
+            <hr>
+            <ul class="nav nav-pills flex-column" style="height: 700px;">
+              <li class="nav-item">
+                <div class="nav-link active" aria-current="page">
+                  <svg class="bi me-2" width="16" height="16"></svg>
+                  项目配置
+                </a>
+              </li>
+              <li>
+                <div class="nav-link link-dark">
+                  <svg class="bi me-2" width="16" height="16"></svg>
+                  项目部署
+                </a>
+              </li>
+              <li>
+                <div class="nav-link link-dark">
+                  <svg class="bi me-2" width="16" height="16"></svg>
+                  数据下载
+                </a>
+              </li>
+            </ul>
+            <hr>
+          </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.js') }}"></script>
+</body>
+</html>

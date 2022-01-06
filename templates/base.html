@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% block title %}{% endblock %}
+    </title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="d-flex justify-content-center py-3">
+          <ul class="nav nav-pills">
+            {% for nav in index_info.navs %}
+                <li class="nav-item">
+                    {% if nav.is_active == True %}
+                        <a href="{{ nav.herf }}" class="nav-link active" aria-current="page">{{ nav.name }}</a>
+                    {% else %}
+                        <a href="{{ nav.herf }}" class="nav-link">{{ nav.name }}</a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+          </ul>
+        </header>
+    </div>
+    <div class="d-flex align-items-stretch p-3 bg-light">
+        <div class="d-flex flex-column flex-shrink-0 p-3 bg-light" style="float: left; width: 280px;">
+            <div class="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
+                <div class="fs-4">{{ index_info.topic }}</div> 
+            </div>
+            <hr>
+            {% block steps %}{% endblock %}
+            <hr>
+        </div>
+        <div class="container-fluid bg-body p-5 pre-scrollable" style="width: 1000px;float: left">
+        {% block content %}{% endblock %}
+        </div>
+    </div>
+    <div class="container-fluid">
+        <footer class="d-flex flex-wrap justify-content-between align-items-center py-3 my-4 border-top">
+          <div class="col-md-4 d-flex align-items-center">
+            <div class="mb-3 me-2 mb-md-0 text-muted text-decoration-none lh-1">
+              <svg class="bi" width="30" height="24"><use xlink:href="#bootstrap"></use></svg>
+            </div>
+            <span class="text-muted">author by Jingqiang Cui & Chaoqun Zhang</span>
+          </div>
+        </footer>
+    </div>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    {% block js %}{% endblock %}
+    
+</body>
+</html>
