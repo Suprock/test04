@@ -27,8 +27,9 @@
     <button type="button" class="btn btn-primary" onclick="send_img_dir(this.form)">上传</button>
     <hr>
 </form>
-<div class="upload_img_log pre-scrollable" id="upload_img_log">
+<div class="upload_img_log pre-scrollable" id="upload_img_log" style="height: 600px; overflow: auto;">
 </div>
+<div class="mb-3" id="btn-next"></div>
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
@@ -46,7 +47,15 @@
             dataType:"json",
             success: function (data) {
                 console.log(data);
-                get_log();
+                if(data["status"] == 302)
+                {
+                    window.location.href = "{{ url_for('index') }}";
+                }
+                else if(data["status"] == 200)
+                {
+                    get_log();
+                }
+                
             },
             error: function(data){
                 console.log(data);
@@ -63,9 +72,9 @@
         socket.on("log_on", function(res)
         {
             var elem_log = document.getElementById("upload_img_log");
-            var new_log = document.createElement("p");
-            new_log.innerHTML = res;
-            elem_log.appendChild(new_log);
+            //var new_log = document.createElement("p");
+            elem_log.innerHTML += "<br>" + res;
+            //elem_log.appendChild(new_log);
         }
         );
         socket.on("upload_status", function(data)
@@ -113,12 +122,24 @@
                 label_shell_log.innerHTML += "<br>" + data
             }
         });
+        
+        socket.on("upload_success",function()
+        {
+            console.log("上传文件完毕");
+            var node = document.getElementById("btn-next");
+            node.innerHTML = '<button type="button" class="btn btn-primary" onclick="goto_install()">下一步</button>'
+        }
+        );
         socket.on("disconnect", function()
         {
             console.log("disconnected");
         }
         );
     }  
+    function goto_install()
+    {
+        window.location.href = "{{ url_for('install_pangu') }}";
+    }
 </script>
 {% endblock %}
 
