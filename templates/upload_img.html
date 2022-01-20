@@ -93,6 +93,26 @@
                 progress_project_info.innerHTML = '<div class="progress-bar" role="progressbar" style="width: '+ percent_value +'%;" aria-valuenow="'+percent_value+'" aria-valuemin="0" aria-valuemax="100">'+percent_value+'%</div>';
             }
         });
+        socket.on("log_on", function(data)
+        {
+            // 打印shell运行过程日志
+            var node_log = document.getElementById("upload_img_log");
+            if(!document.getElementById("node_shell_log"))
+            {
+                var node_shell_log = document.createElement("div");
+                node_shell_log.id = "node_shell_log"
+                var label_shell_log = document.createElement("label");
+                label_shell_log.id = "label_shell_log";
+                label_shell_log.innerHTML += "<br>" + data
+                node_shell_log.appendChild(label_shell_log);
+                node_log.appendChild(node_shell_log);
+            }
+            else
+            {
+                var label_shell_log = document.getElementById("label_shell_log");
+                label_shell_log.innerHTML += "<br>" + data
+            }
+        });
         socket.on("disconnect", function()
         {
             console.log("disconnected");

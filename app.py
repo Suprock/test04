@@ -8,10 +8,16 @@ import _thread
 from paramiko import SSHClient, SFTPClient
 
 global project_info_path
-pangu_install_zip_path = "file/pangu_auto_install.zip"
+global pangu_install_zip_name
+global file_path
 global manager_node_ip
 global manager_node_username
 global manager_node_password
+global files_to_upload
+
+file_path = "file/"
+pangu_install_zip_name = "pangu_auto_install.zip"
+files_to_upload = []
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -131,7 +137,7 @@ def upload_img():
         # TBD 传镜像到images文件夹下
         data = request.get_json()
         print(data)
-        ret, value = check_imgs(data["file_path"])
+        ret = check_imgs(data["file_path"])
         if ret == True:
             return jsonify({"status":200,"result":"OK"})
         else:
@@ -169,11 +175,16 @@ def test1():
     return redirect("/test")
 
 def check_imgs(file_path):
+    global files_to_upload
     if(os.path.exists(file_path)):
         print(os.listdir(file_path))
-        return True,""
+        for img in os.listdir(file_path):
+            img_local_file_path = file_path + "/" + img
+            img_to_upload = FileToUpload(img, local_file_path=img_local_file_path, remote_file_path="")
+            files_to_upload.append(img_to_upload)
+        return True,os.listdir(file_path)
     else:
-        return False,""
+        return False,[]
 
 class FileToUpload:
     def __init__(self, name, local_file_path, remote_file_path) -> None:
@@ -196,6 +207,23 @@ class FileToUpload:
             self._upload_status = True
             print("上传完毕")
 
+def exec_shell_command(hostname, username, password, port, shell_command):
+    try:
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+        ssh_client.connect(hostname=hostname, username=username, password=password, port=port)
+        stdin, stdout, stderr = ssh_client.exec_command(shell_command)
+        while True:
+            lines = stdout.readlines(20)
+            print(lines[0])
+            if lines.__len__() == 0:
+                ssh_client.close()
+                break
+            for line in lines:
+                socketio.emit("log_on", line)
+    except Exception as e:
+        print(e)
+
 
 
 # socket 函数
@@ -204,30 +232,30 @@ def upload_img_socket(data):
     global manager_node_ip
     global manager_node_username
     global manager_node_password
+    global pangu_install_zip_name
+    global files_to_upload
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
-    files_to_upload = []
+    
     try:
         # 上传pangu_auto_install 工具包
-        pangu_auto_install_zip_name = "pangu_auto_install-master_202220104.zip"
+        pangu_auto_install_zip_name = pangu_install_zip_name
         pangu_auto_install_zip_path = "file/pangu_auto_install/{}".format(pangu_auto_install_zip_name)
-        remote_pangu_auto_install_zip_path = "/home/security/{}".format(pangu_auto_install_zip_name)
+        remote_pangu_auto_install_zip_path = "/home/zcq/{}".format(pangu_auto_install_zip_name)
         name = "pangu_auto_install"
         file_pangu_install_zip = FileToUpload(name, pangu_auto_install_zip_path, remote_pangu_auto_install_zip_path)
         file_pangu_install_zip.upload_file(manager_node_ip, manager_node_username, manager_node_password)
 
         # 对工具进行解压操作以及初始化操作
+        port = 22
         command_unzip = "unzip {}".format(pangu_auto_install_zip_name)
-        client = SSHClient()
-        client.set_missing_host_key_policy(AutoAddPolicy())
-        client.connect(hostname=manager_node_ip, port=22, username=manager_node_username, password=manager_node_password)
-        stdin, stdout, stderr = client.exec_command(command_unzip)
-        print(stdout.readlines())
-        
-        command_exec_config = "bash ./pangu_auto_install-master/config.sh"
-        stdin, stdout, stderr = client.exec_command(command_exec_config)
-        print(stdout.readlines())
+        exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_unzip)
+        command_exec_config = "bash ./pangu_auto_install-master/config.sh && source ~/.bashrc"
+        exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_exec_config)
 
-        client.close()
+        # 上传镜像文件到images文件夹
+        for img in files_to_upload:
+            img._remote_file_path = "/home/zcq/pangu_auto_install-master/images/{}".format(img._name)
+            socketio.start_background_task(img.upload_file, manager_node_ip, manager_node_username, manager_node_password)
     except Exception as e:
         print("有错误{}".format(e))
     
