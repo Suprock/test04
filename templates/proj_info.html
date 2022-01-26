@@ -27,16 +27,26 @@
         </div>
     </div>
     <div class="mb-3 row justify-content-left">
+        <label class="form-label col-form-label col-2">是否在公司内部部署</label> 
+        <div class="col-10">
+            <!-- <input class="form-control" type="text" name="proj_name"> -->
+            <select name="is_in_company" id="is_in_company" class="form-select">
+                <option value="0">否</option>
+                <option value="1" selected>是</option>
+            </select>
+        </div>
+    </div>
+    <div class="mb-3 row justify-content-left">
         <label class="form-label col-form-label col-2">盘古版本</label> 
         <div class="col-10">
             <!-- <input class="form-control" type="text" name="proj_name"> -->
             <select name="pangu_version" id="pangu_version" class="form-select">
-                <option value="1.0.2RC1">1.0.2RC1</option>
-                <option value="1.0.2RC2">1.0.2RC2</option>
-                <option value="1.0.5RC1">1.0.5RC1</option>
-                <option value="1.0.6RC3">1.0.6RC3</option>
+                <option value="1.0.2rc1">1.0.2RC1</option>
+                <option value="1.0.2rc2">1.0.2RC2</option>
+                <option value="1.0.5rc1">1.0.5RC1</option>
+                <option value="1.0.6rc3">1.0.6RC3</option>
                 <option value="1.0.6.1">1.0.6.1</option>
-                <option value="1.1.0" selected>1.1.0</option>
+                <option value="1.1.0rc1" selected>1.1.0RC01</option>
             </select>
         </div>
     </div>
@@ -278,6 +288,7 @@ function from_submit(obj)
         alert("请填写加密狗所在节点IP！");
         return;
     }
+    var is_in_company = document.getElementById("is_in_company").value;
     var is_profile = document.getElementById("is_profile").value;
     var is_face_body = document.getElementById("is_face_body").value;
     var algowarehouseA = document.getElementById("algowarehouseA").value;
@@ -317,7 +328,7 @@ function from_submit(obj)
             alert("请填写人数统计算法仓的镜像名称！");
             return;
         }
-        console.log(node_service_info[1].innerHTML)
+        console.log(node_service_info[1].innerHTML);
         var service_info = [core_server_name, server_num];
         arr_service_info.push(service_info);
     }
@@ -350,7 +361,7 @@ function from_submit(obj)
             return;
         }
     }
-    var dict = {"proj_name": proj_name, "pangu_version":pangu_version, "is_HA":is_HA, "VIP_ip":VIP_ip, "is_soft":is_soft, "dongle_ip":dongle_ip, "is_profilo":is_profile,"is_face_body":is_face_body,
+    var dict = {"proj_name": proj_name, "is_in_company":is_in_company,"pangu_version":pangu_version, "is_HA":is_HA, "VIP_ip":VIP_ip, "is_soft":is_soft, "dongle_ip":dongle_ip, "is_profilo":is_profile,"is_face_body":is_face_body,
 "algowarehouseA":algowarehouseA, "algowarehouseB":algowarehouseB, "algowarehouseC":algowarehouseC, "algowarehouseD":algowarehouseD,"arr_service_info":arr_service_info, "arr_devices_info":arr_devices_info};
     var json_dict = JSON.stringify(dict);
     console.log(json_dict)

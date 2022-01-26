@@ -1,3 +1,4 @@
+from turtle import st
 from flask import *
 import paramiko
 from paramiko.client import AutoAddPolicy
@@ -14,11 +15,13 @@ global manager_node_ip
 global manager_node_username
 global manager_node_password
 global files_to_upload
+global is_in_company
 
 manager_node_ip = ""
 file_path = "file/"
 pangu_install_zip_name = "pangu_auto_install.zip"
 files_to_upload = []
+is_in_company = True
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -38,6 +41,7 @@ def proj_info():
     global manager_node_username
     global manager_node_password
     global project_info_path
+    global is_in_company
     if request.method == "GET":
         index_info = {"topic":"盘古自动部署工具",
         "steps":[{"name":"项目配置", "is_active":True}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
@@ -49,12 +53,20 @@ def proj_info():
         arr_service_info = data["arr_service_info"]
         str_services_info = ""
         for i, service_info in enumerate(arr_service_info):
+            if service_info[1] == "":
+                continue
             if i < len(arr_service_info) - 1:
                 str_service_info = "{}*{},".format(core_sevices[service_info[0]], service_info[1])
             elif i == len(arr_service_info) - 1:
                 str_service_info = "{}*{}".format(core_sevices[service_info[0]], service_info[1])
             str_services_info += str_service_info
 
+        if data["is_in_company"] == "1":
+            is_in_company = True
+            devops_version = "21.5.2"
+        else:
+            is_in_company = False
+            devops_version = ""
         # 分配服务所在节点，pangu,gsp,gmp,iot,core,algowarehouse
         # services_all = ["pangu","gsp","gmp","iot","core"]
         devices_info = ""
@@ -100,8 +112,11 @@ def proj_info():
         data["is_HA"],
         data["VIP_ip"],
         data["dongle_ip"],
+        devops_version,
         data["pangu_version"],
         str_services_info,
+        "", # 共卡附属服务
+        "", # 共卡附属服务
         data["is_profilo"],
         data["is_face_body"],
         data["algowarehouseA"],
@@ -134,25 +149,27 @@ def upload_img():
             "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
         return render_template("upload_img.html",index_info=index_info)
     else:
-        # TBD 传盘古部署工具zip，解压，初始化
-        # TBD 传project_info文件
-        # TBD 传镜像到images文件夹下
         if manager_node_ip == "":
             return jsonify({"status":302,"result":"to root"})
         data = request.get_json()
-        print(data)
         ret = check_imgs(data["file_path"])
         if ret == True:
             return jsonify({"status":200,"result":"OK"})
         else:
             return jsonify({"status":400,"result":"FALSE"})
 
-@app.route("/install_pangu")
+@app.route("/install_pangu", methods=["POST","GET"])
 def install_pangu():
-    index_info = {"topic":"盘古自动部署工具",
-            "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":True},{"name":"信息下载", "is_active":False}],
-            "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
-    return render_template("pangu_install.html", index_info=index_info)
+    global manager_node_ip
+    if request.method == "GET":
+        if manager_node_ip == "":
+            return redirect("/") 
+        index_info = {"topic":"盘古自动部署工具",
+                "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":True},{"name":"信息下载", "is_active":False}],
+                "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
+        return render_template("pangu_install.html", index_info=index_info)
+    else:
+        return jsonify({"status":200})
         
 @app.route("/tools")
 def tools():
@@ -184,7 +201,8 @@ def test1():
     data = request.values
     print(data)
     return redirect("/test")
-
+# 查看文件夹中是否有文件
+# TBD 文件验证或者文件放在指定版本文件夹
 def check_imgs(file_path):
     global files_to_upload
     if(os.path.exists(file_path)):
@@ -222,17 +240,23 @@ class FileToUpload:
             self._upload_status = True
             print("上传完毕")
 
-def exec_shell_command(hostname, username, password, port, shell_command):
+def exec_shell_command(hostname, username, password, port, shell_command, func_type):
     try:
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(AutoAddPolicy())
         ssh_client.connect(hostname=hostname, username=username, password=password, port=port)
         stdin, stdout, stderr = ssh_client.exec_command(shell_command)
         while True:
+            if func_type == "install":
+                lines = stderr.readlines(20)
+                if lines.__len__() != 0:
+                    print(lines)
+                    ssh_client.close()
+                    break
             lines = stdout.readlines(20)
-            if lines.__len__() == 0:
-                ssh_client.close()
-                break
+            if func_type == "upload":
+                if lines.__len__() == 0:
+                    break
             for line in lines:
                 socketio.emit("log_on", line)
     except Exception as e:
@@ -248,6 +272,7 @@ def upload_img_socket(data):
     global manager_node_password
     global pangu_install_zip_name
     global files_to_upload
+    func_type = "upload"
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
     if manager_node_ip == "":
         return redirect("/")
@@ -258,7 +283,12 @@ def upload_img_socket(data):
         timestamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
         remote_file_dir = "/home/security/{}/".format(timestamp)
         command_mkdir_remote_file_dir = "mkdir {}".format(remote_file_dir)
-        exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_mkdir_remote_file_dir)
+        exec_shell_command(hostname=manager_node_ip,
+        username=manager_node_username,
+        password=manager_node_password,
+        port=port,
+        shell_command=command_mkdir_remote_file_dir,
+        func_type=func_type)
 
         # 上传pangu_auto_install 工具包
         pangu_auto_install_zip_name = pangu_install_zip_name
@@ -273,30 +303,54 @@ def upload_img_socket(data):
         commands = ["rm -rf pangu_auto_install-master", "unzip {}".format(remote_pangu_auto_install_zip_path), 
         "sudo rm -rf /usr/bin/installctl", "bash ./pangu_auto_install-master/config.sh && source ~/.bashrc"]
         for command in commands:
-            exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command)
-        # command_delete_pangu_dir = "rm -rf pangu_auto_install-master"
-        # exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_delete_pangu_dir)
-        # command_unzip = "unzip {}".format(remote_pangu_auto_install_zip_path)
-        # exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_unzip)
-        # command_exec_config = "bash ./pangu_auto_install-master/config.sh && source ~/.bashrc"
-        # exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_exec_config)
+            exec_shell_command(hostname=manager_node_ip,
+            username=manager_node_username,
+            password=manager_node_password,
+            port=port,
+            shell_command=command,
+            func_type=func_type)
 
-        # 上传镜像文件到images文件夹
+        # 上传project_info文件
+        remote_project_info_path = "pangu_auto_install-master/project_info"
+        proj_info_to_load = FileToUpload("project_info", project_info_path, remote_project_info_path)
+        _thread.start_new_thread(proj_info_to_load.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
+
         for img in files_to_upload:
             img._remote_file_path = "pangu_auto_install-master/images/{}".format(img._name)
             _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
-        socketio.emit("upload_success")
+        # 上传镜像文件到images文件夹
+        # 判断是否所有文件都上传完毕
+        is_upload_success = False
+        while True:
+            for img in files_to_upload:
+                if img._upload_status == False:
+                    is_upload_success = False
+                    break
+                else:
+                    is_upload_success = True
+            if is_upload_success == True:
+                socketio.emit("upload_success")
+                break
 
     except Exception as e:
         print("有错误{}".format(e))
     
-   
-
-    # socketio.start_background_task()
-    # for i in range(1,100):
-    #     socketio.emit("log_on", "第{}条信息。".format(i))
-    #     time.sleep(1)
-
+@socketio.on("install_begin")
+def install_begin():
+    global is_in_company
+    global manager_node_ip
+    global manager_node_username
+    global manager_node_password
+    port = 22
+    func_type = "install"
+    is_in_company = True
+    if is_in_company == True:
+        command_install = "installctl -an"
+    else:
+        command_install = "installctl -a"
+    if manager_node_ip == "":
+        return redirect("/")
+    exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_install,func_type=func_type)
 
 # # 常用函数
 # def upload_img()

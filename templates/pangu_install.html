@@ -17,9 +17,41 @@
 </ul>
 {% endblock %}
 {% block content %}
+<div class="install_log pre-scrollable" id="install_log" style="height: 800px; overflow: auto;">
+</div>
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+<script>
+    $(document).ready(function()
+    {
+        $.ajax({
+            url: "{{ url_for('install_pangu') }}",
+            type: "post",
+            success: function(data)
+            {
+                if(data["status"] == 200)
+                {
+                    get_install_log();
+                }
+            }
+        })
+    })
+
+    function get_install_log()
+    {
+        var socket = io();
+        socket.on("connect", function()
+        {
+            socket.emit("install_begin");
+        });
+        socket.on("log_on", function(res)
+        {
+            var node = document.getElementById("install_log");
+            node.innerHTML += "<br>" + res;
+        });
+    }
+</script>
 {% endblock %}
 
 
