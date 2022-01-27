@@ -1,4 +1,5 @@
 from turtle import st
+from unicodedata import is_normalized
 from flask import *
 import paramiko
 from paramiko.client import AutoAddPolicy
@@ -7,6 +8,7 @@ import os, time
 from flask_socketio import *
 import _thread
 from paramiko import SSHClient, SFTPClient
+from ping3 import ping
 
 global project_info_path
 global pangu_install_zip_name
@@ -16,12 +18,19 @@ global manager_node_username
 global manager_node_password
 global files_to_upload
 global is_in_company
+global remote_pangu_auto_install_dir
+global dongle_ip
+global is_soft
+global rac_file_path    # rac文件路径
 
+remote_pangu_auto_install_dir = "pangu_auto_install-master"
 manager_node_ip = ""
 file_path = "file/"
 pangu_install_zip_name = "pangu_auto_install.zip"
 files_to_upload = []
 is_in_company = True
+dongle_ip = ""
+is_soft = ""
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -42,6 +51,8 @@ def proj_info():
     global manager_node_password
     global project_info_path
     global is_in_company
+    global dongle_ip
+    global is_soft
     if request.method == "GET":
         index_info = {"topic":"盘古自动部署工具",
         "steps":[{"name":"项目配置", "is_active":True}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
@@ -50,6 +61,8 @@ def proj_info():
     else:
         data = request.get_json()
         # 拼接服务字符串如"faced-video*2,faced-capture*2"
+        dongle_ip = data["dongle_ip"]
+        is_soft = data["is_soft"]
         arr_service_info = data["arr_service_info"]
         str_services_info = ""
         for i, service_info in enumerate(arr_service_info):
@@ -192,6 +205,10 @@ def add_device():
       "navs":[{"name":"自动部署工具", "is_active":False, "herf":"/"}, {"name":"小工具", "is_active":True, "herf":"/tools"}]}
     return render_template("add_device.html", index_info=index_info)
 
+@app.route("/download_rac")
+def download_rac():
+    return send_from_directory(rac_file_path, "480.WibuCmRac", as_attachment=True)
+
 @app.route("/test")
 def test():
     return render_template("test.html")
@@ -240,6 +257,32 @@ class FileToUpload:
             self._upload_status = True
             print("上传完毕")
 
+class FileToDownload:
+    def __init__(self, name, local_file_path, remote_file_path) -> None:
+        self._name = name
+        self._local_file_path = local_file_path
+        self._remote_file_path = remote_file_path
+        self.download_status = False
+    
+    def upload_file(self, manager_node_ip, manager_node_username, manager_node_password):
+        try:
+            tran = paramiko.Transport((manager_node_ip,22))
+            tran.connect(username=manager_node_username, password=manager_node_password)
+            sftp = paramiko.SFTPClient.from_transport(tran)
+            sftp.get(localpath=self._local_file_path, remotepath=self._remote_file_path, callback=self.download_status)
+            tran.close()
+            sftp.close()
+        except Exception as e:
+            print("出错了，{}".format(e))
+            tran.close()
+            sftp.close()
+
+    def download_status(self, bytes, max_bytes):
+        socketio.emit("download_status", {"filename":self._name, "bytes":bytes, "max_bytes":max_bytes})
+        if bytes == max_bytes:
+            self.download_status = True
+            print("上传完毕")
+
 def exec_shell_command(hostname, username, password, port, shell_command, func_type):
     try:
         ssh_client = paramiko.SSHClient()
@@ -262,6 +305,29 @@ def exec_shell_command(hostname, username, password, port, shell_command, func_t
     except Exception as e:
         print(e)
 
+def exec_shell_commands(hostname, username, password, port, shell_commands, func_type):
+    try:
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+        ssh_client.connect(hostname=hostname, username=username, password=password, port=port)
+        for command in shell_commands:
+            stdin, stdout, stderr = ssh_client.exec_command(command)
+            while True:
+                if func_type == "install":
+                    lines = stderr.readlines(20)
+                    if lines.__len__() != 0:
+                        print(lines)
+                        ssh_client.close()
+                        break
+                lines = stdout.readlines(20)
+                if func_type == "upload":
+                    if lines.__len__() == 0:
+                        break
+                for line in lines:
+                    socketio.emit("log_on", line)
+    except Exception as e:
+        print(e)
+
 
 
 # socket 函数
@@ -272,8 +338,11 @@ def upload_img_socket(data):
     global manager_node_password
     global pangu_install_zip_name
     global files_to_upload
+    global remote_pangu_auto_install_dir
+    global project_info_path
     func_type = "upload"
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
+    
     if manager_node_ip == "":
         return redirect("/")
     
@@ -300,8 +369,8 @@ def upload_img_socket(data):
         file_pangu_install_zip.upload_file(manager_node_ip, manager_node_username, manager_node_password)
 
         # 对工具进行解压操作以及初始化操作
-        commands = ["rm -rf pangu_auto_install-master", "unzip {}".format(remote_pangu_auto_install_zip_path), 
-        "sudo rm -rf /usr/bin/installctl", "bash ./pangu_auto_install-master/config.sh && source ~/.bashrc"]
+        commands = ["rm -rf {}".format(remote_pangu_auto_install_dir), "unzip {}".format(remote_pangu_auto_install_zip_path), 
+        "sudo rm -rf /usr/bin/installctl", "bash ./{}/config.sh && source ~/.bashrc".format(remote_pangu_auto_install_dir)]
         for command in commands:
             exec_shell_command(hostname=manager_node_ip,
             username=manager_node_username,
@@ -311,12 +380,12 @@ def upload_img_socket(data):
             func_type=func_type)
 
         # 上传project_info文件
-        remote_project_info_path = "pangu_auto_install-master/project_info"
+        remote_project_info_path = "{}/project_info".format(remote_pangu_auto_install_dir)
         proj_info_to_load = FileToUpload("project_info", project_info_path, remote_project_info_path)
         _thread.start_new_thread(proj_info_to_load.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
 
         for img in files_to_upload:
-            img._remote_file_path = "pangu_auto_install-master/images/{}".format(img._name)
+            img._remote_file_path = "{}/images/{}".format(remote_pangu_auto_install_dir,img._name)
             _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
         # 上传镜像文件到images文件夹
         # 判断是否所有文件都上传完毕
@@ -341,19 +410,55 @@ def install_begin():
     global manager_node_ip
     global manager_node_username
     global manager_node_password
+    global remote_pangu_auto_install_dir
+    global is_soft
+    global dongle_ip  
+    global file_path
+    global rac_file_path
+
     port = 22
     func_type = "install"
+    layout_addr = "10.122.48.15"
     is_in_company = True
-    if is_in_company == True:
-        command_install = "installctl -an"
-    else:
-        command_install = "installctl -a"
     if manager_node_ip == "":
         return redirect("/")
-    exec_shell_command(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_command=command_install,func_type=func_type)
-
-# # 常用函数
-# def upload_img()
+    ping_ret = ping(layout_addr)
+    if is_in_company == True:
+        command_install = ["installctl -in", "installctl -l", "installctl -L", "installctl -I", "installctl -c"]
+        exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
+    else:
+        command_install = ["installctl -i", "installctl -l"]
+        # 产生加密狗授权申请文件
+        command_dongle = "{}/bin/dongle export {} 480"
+        if is_soft == "true":
+            dongle_type = "soft"
+            context = "5000468"
+        else:
+            dongle_type = "hard"
+            context = "102507"
+        command_dongle.format(remote_pangu_auto_install_dir, dongle_type)
+        command_install.append(command_dongle)
+        exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
+        # 下载加密狗授权文件
+        name = "加密狗授权文件下载"
+        path_date = time.strftime("%Y%m%d", time.localtime())
+        local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path,path_date)
+        remote_rac_file_path = "dongle-{}-*.WibuCmRac".format(context)
+        rac_file_download = FileToDownload(name, local_rac_file_path, remote_rac_file_path)
+        rac_file_download.upload_file(manager_node_ip, manager_node_username, manager_node_password)
+        rac_file_path = "{}{}".format(file_path,path_date)
+        if rac_file_download.download_status == True:
+            socketio.emit("download_rac")
+            socketio.event("upload_rau")
+        # 判断本机是否能到达编排服务器
+        if ping_ret == None:
+            # 不能ping通编排服务器
+            pass
+        else:
+            # 可以ping通编排服务器，执行全部命令
+            pass
+    # TBD 下载指纹文件，导入证书文件，启动服务
+            
 
 if __name__ == "__main__":
     socketio.run(app)
