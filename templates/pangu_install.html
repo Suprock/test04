@@ -24,6 +24,7 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script>
+    var socket = io();
     $(document).ready(function()
     {
         $.ajax({
@@ -38,10 +39,8 @@
             }
         })
     })
-
     function get_install_log()
     {
-        var socket = io();
         socket.on("connect", function()
         {
             socket.emit("install_begin");
@@ -80,7 +79,18 @@
         var dict = {"rau_path":rau_path};
         var json_dict = JSON.stringify(dict);
         $.ajax({
-            
+            url: "{{ url_for('upload_rau') }}",
+            type: "post",
+            dataType:"json",
+            data:json_dict,
+            success:function(data)
+            {
+                console.log(data);
+                if(data["status"] == 200)
+                {
+                    socket.emit("layout_begin");
+                }
+            }
         });
     }
 </script>

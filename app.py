@@ -209,6 +209,19 @@ def add_device():
 def download_rac():
     return send_from_directory(rac_file_path, "480.WibuCmRac", as_attachment=True)
 
+@app.route("/upload_rau", methods=["POST", "GET"])
+def upload_rau():
+    global manager_node_ip
+    global manager_node_username
+    global manager_node_password
+    if request.method == "POST":
+        data = request.get_json()
+        rau_path = data["path"]
+        rau_name = os.path.splitext(rau_path)[-1]
+        rau_to_upload = FileToUpload("rau", rau_path, rau_name)
+        rau_to_upload.upload_file(manager_node_ip, manager_node_username, manager_node_password)
+        return jsonify({"status":200, "result":"上传rau文件成功"})
+
 @app.route("/test")
 def test():
     return render_template("test.html")
@@ -418,11 +431,9 @@ def install_begin():
 
     port = 22
     func_type = "install"
-    layout_addr = "10.122.48.15"
-    is_in_company = True
     if manager_node_ip == "":
         return redirect("/")
-    ping_ret = ping(layout_addr)
+    
     if is_in_company == True:
         command_install = ["installctl -in", "installctl -l", "installctl -L", "installctl -I", "installctl -c"]
         exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
@@ -450,15 +461,20 @@ def install_begin():
         if rac_file_download.download_status == True:
             socketio.emit("download_rac")
             socketio.event("upload_rau")
-        # 判断本机是否能到达编排服务器
-        if ping_ret == None:
-            # 不能ping通编排服务器
-            pass
-        else:
-            # 可以ping通编排服务器，执行全部命令
-            pass
+        
+@socketio.on("layout_begin")
+def layout_begin():
+    func_type = "install"
+    layout_addr = "10.122.48.15"
+    ping_ret = ping(layout_addr)
+    # 判断本机是否能到达编排服务器
+    if ping_ret == None:
+        # 不能ping通编排服务器
+        pass
+    else:
+        # 可以ping通编排服务器，执行全部命令
+        pass
     # TBD 下载指纹文件，导入证书文件，启动服务
-            
 
 if __name__ == "__main__":
     socketio.run(app)

@@ -135,7 +135,12 @@
             console.log("disconnected");
         }
         );
-        socket.on("upload_rau")
+        socket.on("upload_rau", function(){
+            // TBD 添加form
+            // 添加输入框，用于填写文件路径
+            // 点击上传按钮，将加密狗授权文件上传
+            // 后台上传并执行导入完毕即可
+        });
     }  
     function goto_install()
     {
