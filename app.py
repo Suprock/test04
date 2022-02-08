@@ -1,5 +1,3 @@
-from turtle import st
-from unicodedata import is_normalized
 from flask import *
 import paramiko
 from paramiko.client import AutoAddPolicy
@@ -36,12 +34,26 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
+###
+# topic  值1：盘古自动部署工具；
+#        值2：小工具
+# steps  盘古自动部署工具 值0-4 分别表示配置管理，镜像上传，授权证书，项目部署，信息下载；
+#        小工具 值0-2 分别表示加密狗授权，证书下载，相机添加
+###
+def make_index_info(topic, steps):
+    if topic == 1:
+        index_info = {"topic":"盘古自动部署工具",
+        "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"授权证书","is_active":False},{"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
+        "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
+    elif topic == 2:
+        index_info = {"topic":"小工具",
+     "steps":[{"name":"加密狗配置", "is_active":False, "herf":"/tools"},{"name":"证书下载","is_active":False, "herf":"/cerf"},{"name":"添加相机", "is_active":False, "herf":"/add_device"}],
+      "navs":[{"name":"自动部署工具", "is_active":False, "herf":"/"}, {"name":"小工具", "is_active":True, "herf":"/tools"}]}
+    index_info["steps"][steps]["is_active"] = True
+    return index_info
+
 @app.route("/")
 def index():
-    # index_info = {"topic":"盘古自动部署工具",
-    #  "steps":[{"name":"项目配置", "is_active":True},{"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
-    #   "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
-    # return render_template("proj_info.html" ,index_info=index_info)
     return redirect("/proj_info")
 
 @app.route("/proj_info", methods=["POST", "GET"])
@@ -54,9 +66,7 @@ def proj_info():
     global dongle_ip
     global is_soft
     if request.method == "GET":
-        index_info = {"topic":"盘古自动部署工具",
-        "steps":[{"name":"项目配置", "is_active":True}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
-        "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
+        index_info = make_index_info(1, 0)
         return render_template("proj_info.html" ,index_info=index_info)
     else:
         data = request.get_json()
@@ -157,9 +167,8 @@ def proj_info():
 def upload_img():
     global manager_node_ip
     if request.method == "GET":
-        index_info = {"topic":"盘古自动部署工具",
-            "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":True}, {"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
-            "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
+        # TBD 查看管理节点信息是否存在，不存在转到首页
+        index_info = make_index_info(1, 1)
         return render_template("upload_img.html",index_info=index_info)
     else:
         if manager_node_ip == "":
@@ -177,32 +186,24 @@ def install_pangu():
     if request.method == "GET":
         if manager_node_ip == "":
             return redirect("/") 
-        index_info = {"topic":"盘古自动部署工具",
-                "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"项目部署","is_active":True},{"name":"信息下载", "is_active":False}],
-                "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
+        index_info = make_index_info(1, 2)
         return render_template("pangu_install.html", index_info=index_info)
     else:
         return jsonify({"status":200})
         
 @app.route("/tools")
 def tools():
-    index_info = {"topic":"小工具",
-     "steps":[{"name":"加密狗配置", "is_active":True, "herf":"/tools"},{"name":"证书下载","is_active":False, "herf":"/cerf"},{"name":"添加相机", "is_active":False, "herf":"/add_device"}],
-      "navs":[{"name":"自动部署工具", "is_active":False, "herf":"/"}, {"name":"小工具", "is_active":True, "herf":"/tools"}]}
+    index_info = make_index_info(2, 0)
     return render_template("dongle.html" ,index_info=index_info)
 
 @app.route("/cerf")
 def cerf():
-    index_info = {"topic":"小工具",
-     "steps":[{"name":"加密狗配置", "is_active":False, "herf":"/tools"},{"name":"证书下载","is_active":True, "herf":"/cerf"},{"name":"添加相机", "is_active":False, "herf":"/add_device"}],
-      "navs":[{"name":"自动部署工具", "is_active":False, "herf":"/"}, {"name":"小工具", "is_active":True, "herf":"/tools"}]}
+    index_info = make_index_info(2, 1)
     return render_template("cerf.html", index_info=index_info)
 
 @app.route("/add_device")
 def add_device():
-    index_info = {"topic":"小工具",
-     "steps":[{"name":"加密狗配置", "is_active":False, "herf":"/tools"},{"name":"证书下载","is_active":False, "herf":"/cerf"},{"name":"添加相机", "is_active":True, "herf":"/add_device"}],
-      "navs":[{"name":"自动部署工具", "is_active":False, "herf":"/"}, {"name":"小工具", "is_active":True, "herf":"/tools"}]}
+    index_info = make_index_info(2, 2)
     return render_template("add_device.html", index_info=index_info)
 
 @app.route("/download_rac")
