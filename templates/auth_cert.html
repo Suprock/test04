@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}授权证书{% endblock %}
+{% block steps %}
+<ul class="nav nav-pills flex-column" style="height: 700px;">
+    {% for step in index_info.steps %}
+        <li class="nav-item">
+            {% if step.is_active == True %}
+                <div class="nav-link active" aria-current="page">
+            {% else %}
+                <div class="nav-link" aria-current="page">
+            {% endif %}
+            <svg class="bi me-2" width="16" height="16"></svg>
+            {{ step.name }}
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
+{% block content %}
+<div class="md-3">
+    加密狗授权申请
+</div>
+<div class="md-3">
+    加密狗授权上传
+</div>
+<div class="md-3">
+    证书指纹申请
+</div>
+<div class="md-3">
+    证书文件上传
+</div>
+{% endblock %}

@@ -7,6 +7,7 @@ from flask_socketio import *
 import _thread
 from paramiko import SSHClient, SFTPClient
 from ping3 import ping
+from file import file_check
 
 global project_info_path
 global pangu_install_zip_name
@@ -43,7 +44,7 @@ socketio = SocketIO(app)
 def make_index_info(topic, steps):
     if topic == 1:
         index_info = {"topic":"盘古自动部署工具",
-        "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"授权证书","is_active":False},{"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
+        "steps":[{"name":"项目配置", "is_active":False}, {"name":"镜像上传","is_active":False}, {"name":"devops安装","is_active":False},{"name":"授权证书","is_active":False},{"name":"项目部署","is_active":False},{"name":"信息下载", "is_active":False}],
         "navs":[{"name":"自动部署工具", "is_active":True, "herf":"/"}, {"name":"小工具", "is_active":False, "herf":"/tools"}]}
     elif topic == 2:
         index_info = {"topic":"小工具",
@@ -174,11 +175,28 @@ def upload_img():
         if manager_node_ip == "":
             return jsonify({"status":302,"result":"to root"})
         data = request.get_json()
-        ret = check_imgs(data["file_path"])
+        ret, imgs = file_check(data["file_path"], 1)
         if ret == True:
             return jsonify({"status":200,"result":"OK"})
         else:
             return jsonify({"status":400,"result":"FALSE"})
+
+@app.route("/install_devops", methods=["GET", "POST"])
+def install_devops():
+    if request.method == "GET":
+        index_info = make_index_info(1, 2)
+        return render_template("devops_install.html", index_info=index_info)
+    else:
+        pass
+    pass
+
+@app.route("/auth_cert", methods=["GET", "POST"])
+def auth_cert():
+    if request.method == "GET":
+        index_info = make_index_info(1, 3)
+        return render_template("auth_cert.html", index_info=index_info)
+    else:
+        pass
 
 @app.route("/install_pangu", methods=["POST","GET"])
 def install_pangu():
@@ -186,7 +204,7 @@ def install_pangu():
     if request.method == "GET":
         if manager_node_ip == "":
             return redirect("/") 
-        index_info = make_index_info(1, 2)
+        index_info = make_index_info(1, 4)
         return render_template("pangu_install.html", index_info=index_info)
     else:
         return jsonify({"status":200})
