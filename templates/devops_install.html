@@ -16,3 +16,40 @@
     {% endfor %}
 </ul>
 {% endblock %}
+{% block content %}
+<div class="md3 pre-scrollable" style="height: 800px; overflow: auto;">
+    <label id="install_log"></label>
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+<script>
+    socket = io();
+    $(document).ready(function(){
+        $.ajax({
+            url: "{{ url_for('install_devops') }}",
+            type: "post",
+            success: function(data){
+                if(data["status"] == 200)
+                {
+                    get_install_log();
+                }
+            }
+        })
+    })
+
+    function get_install_log()
+    {
+        socket.on("connect", function()
+        {
+            socket.emit("install_devops");
+        });
+        socket.on("log_on", function(res)
+        {
+            var node = document.getElementById("install_log");
+            node.innerHTML += "<br>" + res;
+        });
+    }
+</script>
+{% endblock %}
+
