@@ -8,7 +8,7 @@ class TransFile:
         self.name = name
         self.local_file_path = local_file_path
         self.remote_file_path = remote_file_path
-        self.download_status = False
+        self.status = False
         self.service_info = service_info
         self.trans_type = ""
         self.callback_func = callback_func
@@ -49,7 +49,9 @@ class TransFile:
 
     # 接受文件传输的字节数和总字节数，回调传给外部函数
     def trans_status(self, bytes, total_bytes):
-        self.callback((self.name, bytes, total_bytes), self.callback_func)
+        if bytes == total_bytes:
+            self.status = True
+        self.callback((self.trans_type ,self.name, bytes, total_bytes), self.callback_func)
 
 # 检查文件
 '''

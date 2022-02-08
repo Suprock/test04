@@ -7,7 +7,7 @@ from flask_socketio import *
 import _thread
 from paramiko import SSHClient, SFTPClient
 from ping3 import ping
-from file import file_check
+from file import file_check, TransFile
 
 global project_info_path
 global pangu_install_zip_name
@@ -21,6 +21,7 @@ global remote_pangu_auto_install_dir
 global dongle_ip
 global is_soft
 global rac_file_path    # rac文件路径
+global manager_node_info
 
 remote_pangu_auto_install_dir = "pangu_auto_install-master"
 manager_node_ip = ""
@@ -66,6 +67,7 @@ def proj_info():
     global is_in_company
     global dongle_ip
     global is_soft
+    global manager_node_info
     if request.method == "GET":
         index_info = make_index_info(1, 0)
         return render_template("proj_info.html" ,index_info=index_info)
@@ -102,12 +104,14 @@ def proj_info():
             manager_node_ip = devices[0][0]
             manager_node_username = devices[0][1]
             manager_node_password = devices[0][2]
+            manager_node_info = ManagerNodeInfo(devices[0][0], devices[0][1], devices[0][2])
         elif arr_service_info[0][1] != "" and len(devices) == 1:
             local_service = "pangu,gmp,core,iot,gsp"
             devices_info = manager_node.format(1, devices[0][0], devices[0][1], devices[0][2],local_service)
             manager_node_ip = devices[0][0]
             manager_node_username = devices[0][1]
             manager_node_password = devices[0][2]
+            manager_node_info = ManagerNodeInfo(devices[0][0], devices[0][1], devices[0][2])
         elif arr_service_info[0][1] != "" or len(arr_service_info) > 1:
             #只针对第一台算力和第一台业务分配服务
             is_first_busi = True
@@ -119,8 +123,9 @@ def proj_info():
                     str_node = manager_node
                     index = 1
                     manager_node_ip = device[0]
-                    manager_node_username = devices[1]
-                    manager_node_password = devices[2]
+                    manager_node_username = device[1]
+                    manager_node_password = device[2]
+                    manager_node_info = ManagerNodeInfo(device[0],device[1], device[2])
                 else:
                     str_node = agent_node
                     index = i
@@ -167,6 +172,8 @@ def proj_info():
 @app.route("/upload_img", methods=["POST", "GET"])
 def upload_img():
     global manager_node_ip
+    global remote_pangu_auto_install_dir
+    global files_to_upload
     if request.method == "GET":
         # TBD 查看管理节点信息是否存在，不存在转到首页
         index_info = make_index_info(1, 1)
@@ -177,6 +184,12 @@ def upload_img():
         data = request.get_json()
         ret, imgs = file_check(data["file_path"], 1)
         if ret == True:
+            for img in imgs:
+                if ".deb.run" in img[0]:
+                    remote_img_path = "{}/{}".format(remote_pangu_auto_install_dir, img[0])
+                else:
+                    remote_img_path = "{}/images/{}".format(remote_pangu_auto_install_dir, img[0])
+                files_to_upload.append([img[0], img[1], remote_img_path])   
             return jsonify({"status":200,"result":"OK"})
         else:
             return jsonify({"status":400,"result":"FALSE"})
@@ -187,8 +200,8 @@ def install_devops():
         index_info = make_index_info(1, 2)
         return render_template("devops_install.html", index_info=index_info)
     else:
-        pass
-    pass
+        return jsonify({"status":200, "result":"OK"})
+    
 
 @app.route("/auth_cert", methods=["GET", "POST"])
 def auth_cert():
@@ -252,16 +265,16 @@ def test1():
     return redirect("/test")
 # 查看文件夹中是否有文件
 # TBD 文件验证或者文件放在指定版本文件夹
-def check_imgs(file_path):
-    global files_to_upload
-    if(os.path.exists(file_path)):
-        for img in os.listdir(file_path):
-            img_local_file_path = file_path + "/" + img
-            img_to_upload = FileToUpload(img, local_file_path=img_local_file_path, remote_file_path="")
-            files_to_upload.append(img_to_upload)
-        return True
-    else:
-        return False
+# def check_imgs(file_path):
+#     global files_to_upload
+#     if(os.path.exists(file_path)):
+#         for img in os.listdir(file_path):
+#             img_local_file_path = file_path + "/" + img
+#             img_to_upload = FileToUpload(img, local_file_path=img_local_file_path, remote_file_path="")
+#             files_to_upload.append(img_to_upload)
+#         return True
+#     else:
+#         return False
 
 class FileToUpload:
     def __init__(self, name, local_file_path, remote_file_path) -> None:
@@ -314,6 +327,12 @@ class FileToDownload:
         if bytes == max_bytes:
             self.download_status = True
             print("上传完毕")
+
+class ManagerNodeInfo:
+    def __init__(self, manager_node_ip, manager_node_username, manager_node_password) -> None:
+        self.manager_node_ip = manager_node_ip
+        self.manager_node_username = manager_node_username
+        self.manager_node_password = manager_node_password
 
 def exec_shell_command(hostname, username, password, port, shell_command, func_type):
     try:
@@ -372,6 +391,7 @@ def upload_img_socket(data):
     global files_to_upload
     global remote_pangu_auto_install_dir
     global project_info_path
+    global manager_node_info
     func_type = "upload"
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
     
@@ -391,14 +411,18 @@ def upload_img_socket(data):
         shell_command=command_mkdir_remote_file_dir,
         func_type=func_type)
 
+        def upload_log_print(func_type, name, bytes, total_btyes):
+            socketio.emit("upload_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+
         # 上传pangu_auto_install 工具包
         pangu_auto_install_zip_name = pangu_install_zip_name
         pangu_auto_install_zip_path = "file/pangu_auto_install/{}".format(pangu_auto_install_zip_name)
-        # remote_pangu_auto_install_zip_path = "/home/security/{}".format(pangu_auto_install_zip_name)
         remote_pangu_auto_install_zip_path = remote_file_dir + pangu_auto_install_zip_name
         name = "pangu_auto_install"
-        file_pangu_install_zip = FileToUpload(name, pangu_auto_install_zip_path, remote_pangu_auto_install_zip_path)
-        file_pangu_install_zip.upload_file(manager_node_ip, manager_node_username, manager_node_password)
+        # file_pangu_install_zip = FileToUpload(name, pangu_auto_install_zip_path, remote_pangu_auto_install_zip_path)
+        # file_pangu_install_zip.upload_file(manager_node_ip, manager_node_username, manager_node_password)
+        file_pangu_install_zip = TransFile(name, pangu_auto_install_zip_path, remote_pangu_auto_install_zip_path, manager_node_info, upload_log_print)
+        file_pangu_install_zip.upload()
 
         # 对工具进行解压操作以及初始化操作
         commands = ["rm -rf {}".format(remote_pangu_auto_install_dir), "unzip {}".format(remote_pangu_auto_install_zip_path), 
@@ -413,18 +437,24 @@ def upload_img_socket(data):
 
         # 上传project_info文件
         remote_project_info_path = "{}/project_info".format(remote_pangu_auto_install_dir)
-        proj_info_to_load = FileToUpload("project_info", project_info_path, remote_project_info_path)
-        _thread.start_new_thread(proj_info_to_load.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
+        # proj_info_to_load = FileToUpload("project_info", project_info_path, remote_project_info_path)
+        # _thread.start_new_thread(proj_info_to_load.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
+        proj_info_to_load = TransFile("project_info", project_info_path, remote_project_info_path, manager_node_info, upload_log_print)
+        _thread.start_new_thread(proj_info_to_load.upload)
 
+        trans_files =[]
         for img in files_to_upload:
-            img._remote_file_path = "{}/images/{}".format(remote_pangu_auto_install_dir,img._name)
-            _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
+            trans_file = TransFile(img[0], img[1], img[2], manager_node_info, upload_log_print)
+            trans_files.append(trans_file)
+            _thread.start_new_thread(trans_file.upload)
+            # img._remote_file_path = "{}/images/{}".format(remote_pangu_auto_install_dir,img._name)
+            # _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
         # 上传镜像文件到images文件夹
         # 判断是否所有文件都上传完毕
         is_upload_success = False
         while True:
-            for img in files_to_upload:
-                if img._upload_status == False:
+            for trans_file in trans_files:
+                if trans_file.status == False:
                     is_upload_success = False
                     break
                 else:
@@ -435,6 +465,26 @@ def upload_img_socket(data):
 
     except Exception as e:
         print("有错误{}".format(e))
+
+@socketio.on("install_devops")
+def install_devops_begin():
+    global is_in_company
+    global manager_node_ip
+    global manager_node_username
+    global manager_node_password
+
+    port = 22
+    func_type = "install"
+    
+    if manager_node_ip == "":
+        return redirect("/")
+    
+    if is_in_company == True:
+        command_install = ["installctl -in", "installctl -l"]
+    else:
+        command_install = ["installctl -i", "installctl -l"]
+    exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
+    
     
 @socketio.on("install_begin")
 def install_begin():
