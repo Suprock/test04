@@ -1,6 +1,3 @@
-from crypt import methods
-from importlib.resources import path
-from tkinter.messagebox import NO
 from flask import *
 import paramiko
 from paramiko.client import AutoAddPolicy
@@ -40,6 +37,17 @@ manager_node_info = None
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
+
+
+class ManagerNodeInfo:
+    def __init__(self, manager_node_ip, manager_node_username, manager_node_password, port=22) -> None:
+        self.manager_node_ip = manager_node_ip
+        self.manager_node_username = manager_node_username
+        self.manager_node_password = manager_node_password
+        self.prot = port
+
+# manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
+# proj_name = "test20220209"
 
 ###
 # topic  值1：盘古自动部署工具；
@@ -255,15 +263,20 @@ def add_device():
     index_info = make_index_info(2, 2)
     return render_template("add_device.html", index_info=index_info)
 # 前端下载授权文件
-@app.route("/download_rac/<rac_file_path>")
+@app.route("/download_rac/<path:rac_file_path>")
 def download_rac(rac_file_path):
-    return send_from_directory(rac_file_path, "480.WibuCmRac", as_attachment=True)
+    path = rac_file_path.rsplit("/", 1)
+    file_name = path[-1]
+    dir = path[0]
+    return send_from_directory(dir, file_name, as_attachment=True)
 
 # 前端下载指纹文件
-@app.route("/download_finger/<finger_file_path>")
+@app.route("/download_finger/<path:finger_file_path>")
 def download_finger(finger_file_path):
-    file_name = finger_file_path.rsplit("/", 1)[-1]
-    return send_from_directory(finger_file_path, file_name, as_attachment=True)
+    path = finger_file_path.rsplit("/", 1)
+    file_name = path[-1]
+    dir = path[0]
+    return send_from_directory(dir, file_name, as_attachment=True)
 
 # 升级授权
 @app.route("/upload_rau", methods=["POST", "GET"])
@@ -321,11 +334,20 @@ def get_rac_from_server():
         port=manager_node_info.port, shell_commands=commands)
         if ret == False:
             return jsonify({"status":400, "message":"执行生成授权申请文件失败！"})
+        # 查找授权文件名称
+        command = "ls {}/*.WibuCmRac".format(remote_pangu_auto_install_dir, proj_name)
+        commands = [command]
+        ret, rac_name = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=port, shell_commands=commands, func_type="ls")
+        if ret == False:
+            return jsonify({"status":400, "result":"获取授权文件名称失败"})
         # 下载加密狗授权文件
         name = "加密狗授权文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path, path_date)
-        remote_rac_file_path = "{}/dongle-*.WibuCmRac".format(remote_pangu_auto_install_dir)
+        remote_rac_file_path = rac_name.partition("\n")[0]
 
         rac_file_download = TransFile(name, local_rac_file_path, remote_rac_file_path, manager_node_info, download_log_print)
         ret = rac_file_download.download()
@@ -356,17 +378,26 @@ def get_finger_from_server():
         port=port, shell_commands=commands)
         if ret == False:
             return jsonify({"status":400, "result":"获取指纹文件失败"})
+        # 查找指纹文件名称
+        command = "ls {}/*.devops_fingerprint".format(remote_pangu_auto_install_dir, proj_name)
+        commands = [command]
+        ret, finger_name = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=port, shell_commands=commands, func_type="ls")
+        if ret == False:
+            return jsonify({"status":400, "result":"获取指纹文件名称失败"})
         # 下载指纹文件
         name = "指纹文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_finger_file_path = "{}{}/{}.devops_fingerprint".format(file_path, path_date, path_date)
-        remote_finger_file_path = "{}/{}*.devops_fingerprint".format(remote_pangu_auto_install_dir, proj_name)
+        remote_finger_file_path = finger_name.partition("\n")[0]
 
         finger_file_download = TransFile(name, local_finger_file_path, remote_finger_file_path, manager_node_info, download_log_print)
         ret = finger_file_download.download()
         if ret == True:
             if finger_file_download.status == True:
-                return jsonify({"status":200, "message":"OK", "rac_path":local_finger_file_path})
+                return jsonify({"status":200, "message":"OK", "finger_path":local_finger_file_path})
         else:
             return jsonify({"status":400, "message":"从服务器下载授权申请文件失败！"})
 
@@ -414,12 +445,7 @@ def test1():
     print(data)
     return redirect("/test")
 
-class ManagerNodeInfo:
-    def __init__(self, manager_node_ip, manager_node_username, manager_node_password, port=22) -> None:
-        self.manager_node_ip = manager_node_ip
-        self.manager_node_username = manager_node_username
-        self.manager_node_password = manager_node_password
-        self.prot = port
+
 
 def exec_shell_commands(hostname, username, password, port, shell_commands, func_type="common"):
     try:
@@ -449,6 +475,10 @@ def exec_shell_commands(hostname, username, password, port, shell_commands, func
                                 break
                     if is_error ==True or is_done == True:
                         break
+                elif func_type == "ls":
+                    lines = stdout.readlines(20)
+                    if lines.__len__() != 0:
+                        return True, lines[0]
                 else:
                     lines = stdout.readlines(20)
                     if lines.__len__() == 0:
