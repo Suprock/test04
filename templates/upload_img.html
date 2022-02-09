@@ -24,7 +24,7 @@
             <input class="form-control" type="text" name="file_path" id="file_path" placeholder="请输入镜像所在文件夹">
         </div>
     </div>
-    <button type="button" class="btn btn-primary" onclick="send_img_dir(this.form)">上传</button>
+    <button type="button" class="btn btn-primary" id="button" onclick="send_img_dir()">上传</button>
     <hr>
 </form>
 <div class="upload_img_log pre-scrollable" id="upload_img_log" style="height: 600px; overflow: auto;">
@@ -34,7 +34,15 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script type="text/javascript" charset="utf-8">
-    function send_img_dir(obj)
+    $(document).ready(function(){
+        console.log("{{ is_in_company }}");
+        if("{{ is_in_company }}" == "True")
+        {
+            document.getElementById("button").disabled = true;
+            send_img_dir();
+        }
+    })
+    function send_img_dir()
     {
         var imgs_path = document.getElementById("file_path").value;
         imgs_path.replace(/\\/g, '\\\\');
@@ -144,7 +152,7 @@
     }  
     function goto_install()
     {
-        window.location.href = "{{ url_for('install_pangu') }}";
+        window.location.href = "{{ url_for('install_devops') }}";
     }
 </script>
 {% endblock %}
