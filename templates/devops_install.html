@@ -17,8 +17,11 @@
 </ul>
 {% endblock %}
 {% block content %}
-<div class="md3 pre-scrollable" style="height: 800px; overflow: auto;">
+<div class="md-3 pre-scrollable" style="height: 800px; overflow: auto;">
     <label id="install_log"></label>
+</div>
+<div class="md-3" id="btn-next">
+
 </div>
 {% endblock %}
 {% block js %}
@@ -49,6 +52,17 @@
             var node = document.getElementById("install_log");
             node.innerHTML += "<br>" + res;
         });
+        socket.on("install_devops", function(res){
+            if(res["status"]=="success")
+            {
+                var node = document.getElementById("btn-next");
+                node.innerHTML = '<button type="button" class="btn btn-primary" onclick="goto_auth_cert()">下一步</button>'
+            }
+        })
+    }
+    function goto_auth_cert()
+    {
+        window.location.href = "{{ url_for('auth_cert') }}";
     }
 </script>
 {% endblock %}
