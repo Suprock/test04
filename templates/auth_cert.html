@@ -23,18 +23,25 @@
 <hr>
 <div class="md-3" id="div_upload_rau">
     <div class="row mt-3">
-        <input class="input-group" type="text" id="rau_path" placeholder="请输入授权文件的全路径">
+        <input class="input-group" type="text" id="rau_path" name="rau_path" placeholder="请输入授权文件的全路径">
     </div>
-    <div><button type="button" id="upload_rau" onclick="upload_rau()">加密狗授权上传</button></div>
+    <div class="row mt-3"><button type="button" class="btn btn-primary" id="upload_rau" onclick="upload_rau()">加密狗授权上传</button></div>
     
 </div>
 <hr>
 <div class="md-3">
-    证书指纹申请
+    <button class="btn btn-primary" type="button" id="download_finger" onclick="download_finger()">指纹文件申请</button>
 </div>
 <hr>
-<div class="md-3">
-    证书文件上传
+<div class="md-3" id="div_upload_cert">
+    <div class="row mt-3">
+        <input class="input-group" type="text" id="cert_path" name="cert_path" placeholder="请输入证书文件的全路径">
+    </div>
+    <div class="row mt-3"><button type="button" class="btn btn-primary" id="upload_cert" onclick="upload_cert()">证书升级</button></div>
+</div>
+<hr>
+<div class="md-3 mt-3">
+    <button type="button" class="btn btn-primary" id="goto_next" onclick="goto_next()">下一步</button>
 </div>
 {% endblock %}
 {% block js %}
@@ -73,11 +80,35 @@
         })
     }
 
+    function download_finger()
+    {
+        $.ajax({
+            url: "{{ url_for('get_finger_from_server') }}",
+            type: "post",
+            success: function(data)
+            {
+                if(data["status"] == 200)
+                {
+                    finger_file_path = data["finger_path"];
+                    var url = "/download_finger/" + finger_file_path;
+                    window.location.href = url;
+                }
+                else if(data["status"] == 400)
+                {
+                    var node = document.getElementById("div_download_finger");
+                    var tip = document.createElement("label");
+                    tip.innerHTML = "下载授权文件失败！";
+                    node.appendChild(tip);
+                }
+            }
+        })
+    }
+
     function upload_rau()
     {
         var node_rau = document.getElementById("rau_path");
         rau_path = node_rau.value;
-        var dict = {"rau_path":rau_path};
+        var dict = {"path":rau_path};
         var json_dict = JSON.stringify(dict);
         $.ajax({
             url: "{{ url_for('upload_rau') }}",
@@ -96,6 +127,36 @@
                 }
             }
         });
+    }
+
+    function upload_cert()
+    {
+        var node_cert = document.getElementById("cert_path");
+        rau_path = node_cert.value;
+        var dict = {"path":rau_path};
+        var json_dict = JSON.stringify(dict);
+        $.ajax({
+            url: "{{ url_for('upload_cert') }}",
+            type: "post",
+            dataType:"json",
+            data:json_dict,
+            success:function(data)
+            {
+                console.log(data);
+                if(data["status"] == 200)
+                {
+                    var node = document.getElementById("div_upload_cert");
+                    var tip = document.createElement("label");
+                    tip.innerHTML = "更新证书成功！";
+                    node.appendChild(tip);
+                }
+            }
+        });
+    }
+
+    function goto_next()
+    {
+        window.location.href = "{{ url_for('install_pangu') }}"
     }
 </script>
 {% endblock %}
