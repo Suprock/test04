@@ -46,8 +46,8 @@ class ManagerNodeInfo:
         self.manager_node_password = manager_node_password
         self.prot = port
 
-# manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
-# proj_name = "test20220209"
+manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
+proj_name = "test20220209"
 
 ###
 # topic  值1：盘古自动部署工具；
@@ -616,48 +616,21 @@ def install_devops_begin():
 @socketio.on("install_begin")
 def install_begin():
     global is_in_company
-    global manager_node_ip
-    global manager_node_username
-    global manager_node_password
     global remote_pangu_auto_install_dir
     global is_soft
     global dongle_ip  
     global file_path
     global rac_file_path
+    global manager_node_info
 
-    port = 22
-    func_type = "install"
     if manager_node_ip == "":
         return redirect("/")
     
-    if is_in_company == True:
-        command_install = ["installctl -in", "installctl -l", "installctl -L", "installctl -I", "installctl -c"]
-        exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
-    else:
-        # command_install = ["installctl -i", "installctl -l"]
-        # # 产生加密狗授权申请文件
-        # command_dongle = "{}/bin/dongle export 480"
-        # if is_soft == "true":
-        #     dongle_type = "soft"
-        #     context = "5000468"
-        # else:
-        #     dongle_type = "hard"
-        #     context = "102507"
-        # command_dongle.format(remote_pangu_auto_install_dir, dongle_type)
-        # command_install.append(command_dongle)
-        # exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
-        # # 下载加密狗授权文件
-        # name = "加密狗授权文件下载"
-        # path_date = time.strftime("%Y%m%d", time.localtime())
-        # local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path,path_date)
-        # remote_rac_file_path = "dongle-{}-*.WibuCmRac".format(context)
-        # rac_file_download = FileToDownload(name, local_rac_file_path, remote_rac_file_path)
-        # rac_file_download.upload_file(manager_node_ip, manager_node_username, manager_node_password)
-        # rac_file_path = "{}{}".format(file_path,path_date)
-        # if rac_file_download.download_status == True:
-        #     socketio.emit("download_rac")
-        #     socketio.event("upload_rau")
-        pass
+    # TBD 判断本机是否能到达编排服务器
+    # TBD 判断服务器能否到达本机
+    # 上述判断一个为否，则下载压缩包
+
+
         
 @socketio.on("layout_begin")
 def layout_begin():
