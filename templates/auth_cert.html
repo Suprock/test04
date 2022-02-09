@@ -17,16 +17,85 @@
 </ul>
 {% endblock %}
 {% block content %}
-<div class="md-3">
-    加密狗授权申请
+<div class="md-3" id="div_download_rac">
+    <button class="btn btn-primary" type="button" id="download_rac" onclick="download_rac()">加密狗授权申请</button>
 </div>
-<div class="md-3">
-    加密狗授权上传
+<hr>
+<div class="md-3" id="div_upload_rau">
+    <div class="row mt-3">
+        <input class="input-group" type="text" id="rau_path" placeholder="请输入授权文件的全路径">
+    </div>
+    <div><button type="button" id="upload_rau" onclick="upload_rau()">加密狗授权上传</button></div>
+    
 </div>
+<hr>
 <div class="md-3">
     证书指纹申请
 </div>
+<hr>
 <div class="md-3">
     证书文件上传
 </div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+<script>
+    $(document).ready(function(){
+        console.log("{{ is_in_company }}");
+        if("{{ is_in_company }}" == "True")
+        {
+            document.getElementById("download_rac").disabled = true;
+            document.getElementById("upload_rau").disabled = true;
+        }
+    })
+    var socket = io();
+    function download_rac()
+    {
+        $.ajax({
+            url: "{{ url_for('get_rac_from_server') }}",
+            type: "post",
+            success: function(data)
+            {
+                if(data["status"] == 200)
+                {
+                    rac_file_path = data["rac_path"];
+                    var url = "/download_rac/" + rac_file_path;
+                    window.location.href = url;
+                }
+                else if(data["status"] == 400)
+                {
+                    var node = document.getElementById("div_download_rac");
+                    var tip = document.createElement("label");
+                    tip.innerHTML = "下载授权文件失败！";
+                    node.appendChild(tip);
+                }
+            }
+        })
+    }
+
+    function upload_rau()
+    {
+        var node_rau = document.getElementById("rau_path");
+        rau_path = node_rau.value;
+        var dict = {"rau_path":rau_path};
+        var json_dict = JSON.stringify(dict);
+        $.ajax({
+            url: "{{ url_for('upload_rau') }}",
+            type: "post",
+            dataType:"json",
+            data:json_dict,
+            success:function(data)
+            {
+                console.log(data);
+                if(data["status"] == 200)
+                {
+                    var node = document.getElementById("div_upload_rau");
+                    var tip = document.createElement("label");
+                    tip.innerHTML = "更新授权成功！";
+                    node.appendChild(tip);
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
