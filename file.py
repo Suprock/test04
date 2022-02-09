@@ -20,13 +20,15 @@ class TransFile:
             tran = paramiko.Transport((self.service_info.manager_node_ip,22))
             tran.connect(username=self.service_info.manager_node_username, password=self.service_info.manager_node_password)
             sftp = paramiko.SFTPClient.from_transport(tran)
-            sftp.put(localpath=self._local_file_path, remotepath=self._remote_file_path, callback=self.trans_status)
+            sftp.put(localpath=self.local_file_path, remotepath=self.remote_file_path, callback=self.trans_status)
             tran.close()
             sftp.close()
+            return True
         except Exception as e:
             print("出错了，{}".format(e))
             tran.close()
             sftp.close()
+            return False
     
     # 下载文件
     def download(self):
@@ -35,13 +37,15 @@ class TransFile:
             tran = paramiko.Transport((self.service_info.manager_node_ip,22))
             tran.connect(username=self.service_info.manager_node_username, password=self.service_info.manager_node_password)
             sftp = paramiko.SFTPClient.from_transport(tran)
-            sftp.get(localpath=self._local_file_path, remotepath=self._remote_file_path, callback=self.trans_status)
+            sftp.get(localpath=self.local_file_path, remotepath=self.remote_file_path, callback=self.trans_status)
             tran.close()
             sftp.close()
+            return True
         except Exception as e:
             print("出错了，{}".format(e))
             tran.close()
             sftp.close()
+            return False
     
     # 回调函数，接收传递文件数据
     def callback(self, args, func):
@@ -51,7 +55,7 @@ class TransFile:
     def trans_status(self, bytes, total_bytes):
         if bytes == total_bytes:
             self.status = True
-        self.callback((self.trans_type ,self.name, bytes, total_bytes), self.callback_func)
+        self.callback_func(self.trans_type ,self.name, bytes, total_bytes)
 
 # 检查文件
 '''
