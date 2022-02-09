@@ -1,3 +1,6 @@
+from crypt import methods
+from importlib.resources import path
+from tkinter.messagebox import NO
 from flask import *
 import paramiko
 from paramiko.client import AutoAddPolicy
@@ -31,6 +34,7 @@ files_to_upload = []
 is_in_company = True
 dongle_ip = ""
 is_soft = ""
+manager_node_info = None
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -174,13 +178,17 @@ def upload_img():
     global manager_node_ip
     global remote_pangu_auto_install_dir
     global files_to_upload
+    global manager_node_info
+    global is_in_company
     if request.method == "GET":
-        # TBD 查看管理节点信息是否存在，不存在转到首页
+        # 查看管理节点信息是否存在，不存在转到首页
+        if manager_node_info == None:
+            return redirect("/")
         index_info = make_index_info(1, 1)
-        return render_template("upload_img.html",index_info=index_info)
+        return render_template("upload_img.html",index_info=index_info, is_in_company=is_in_company)
     else:
-        if manager_node_ip == "":
-            return jsonify({"status":302,"result":"to root"})
+        if is_in_company == True:
+            return jsonify({"status":200,"result":"OK"})
         data = request.get_json()
         ret, imgs = file_check(data["file_path"], 1)
         if ret == True:
@@ -192,11 +200,14 @@ def upload_img():
                 files_to_upload.append([img[0], img[1], remote_img_path])   
             return jsonify({"status":200,"result":"OK"})
         else:
-            return jsonify({"status":400,"result":"FALSE"})
+            return jsonify({"status":201,"result":"FALSE"})
 
 @app.route("/install_devops", methods=["GET", "POST"])
 def install_devops():
+    global manager_node_info
     if request.method == "GET":
+        if manager_node_info == None:
+            return redirect("/")
         index_info = make_index_info(1, 2)
         return render_template("devops_install.html", index_info=index_info)
     else:
@@ -205,14 +216,18 @@ def install_devops():
 
 @app.route("/auth_cert", methods=["GET", "POST"])
 def auth_cert():
+    global is_in_company
     if request.method == "GET":
+        if manager_node_info == None:
+            return redirect("/")
         index_info = make_index_info(1, 3)
-        return render_template("auth_cert.html", index_info=index_info)
+        return render_template("auth_cert.html", index_info=index_info, is_in_company=is_in_company)
     else:
         pass
 
 @app.route("/install_pangu", methods=["POST","GET"])
 def install_pangu():
+    global manager_node_info
     global manager_node_ip
     if request.method == "GET":
         if manager_node_ip == "":
@@ -236,23 +251,79 @@ def cerf():
 def add_device():
     index_info = make_index_info(2, 2)
     return render_template("add_device.html", index_info=index_info)
-
-@app.route("/download_rac")
-def download_rac():
+#前端下载授权文件
+@app.route("/download_rac/<rac_file_path>")
+def download_rac(rac_file_path):
     return send_from_directory(rac_file_path, "480.WibuCmRac", as_attachment=True)
-
+#升级授权
 @app.route("/upload_rau", methods=["POST", "GET"])
 def upload_rau():
-    global manager_node_ip
-    global manager_node_username
-    global manager_node_password
+    global manager_node_info
+    global dongle_ip
+    global remote_pangu_auto_install_dir
+
+    port = 22
+
+    def upload_log_print(func_type, name, bytes, total_btyes):
+        socketio.emit("upload_rau_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+
     if request.method == "POST":
         data = request.get_json()
         rau_path = data["path"]
-        rau_name = os.path.splitext(rau_path)[-1]
-        rau_to_upload = FileToUpload("rau", rau_path, rau_name)
-        rau_to_upload.upload_file(manager_node_ip, manager_node_username, manager_node_password)
-        return jsonify({"status":200, "result":"上传rau文件成功"})
+        path_date = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        rau_name = "{}-{}.WibuCmRau".format(dongle_ip, path_date)
+        # 上传rau文件
+        rau_to_upload = TransFile("rau", rau_path, rau_name, manager_node_info, upload_log_print)
+        ret = rau_to_upload.upload()
+        if ret == False:
+            return jsonify({"status":400, "result":"上传rau文件失败！"})
+        # 升级加密狗授权
+        commands=[]
+        command = "{}/bin/dongle import import {}".format(remote_pangu_auto_install_dir, rau_name)
+        commands.append(command)
+        ret = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=port, shell_commands=command)
+        if ret == False:
+            return jsonify({"status":400, "result":"升级授权文件失败！"})
+        else:
+            return jsonify({"status":200, "result":"升级授权文件成功！"})
+
+# 从服务器获取授权申请文件        
+@app.route("/get_rac_from_server", methods=["POST"])
+def get_rac_from_server():
+    if request.method == "POST":
+        global manager_node_info
+        global file_path
+        port = 22
+        global remote_pangu_auto_install_dir
+
+        def download_log_print(func_type, name, bytes, total_btyes):
+            socketio.emit("upload_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+        
+        command_dongle = "{}/bin/dongle export 480"
+        command_dongle.format(remote_pangu_auto_install_dir)
+        command = [command_dongle]
+        ret = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=port, shell_commands=command)
+        if ret == False:
+            return jsonify({"status":400, "message":"执行生成授权申请文件失败！"})
+        # 下载加密狗授权文件
+        name = "加密狗授权文件下载"
+        path_date = time.strftime("%Y%m%d", time.localtime())
+        local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path, path_date)
+        remote_rac_file_path = "{}/dongle-*.WibuCmRac".format(remote_pangu_auto_install_dir)
+
+        rac_file_download = TransFile(name, local_rac_file_path, remote_rac_file_path, manager_node_info, download_log_print)
+        ret = rac_file_download.download()
+        if ret == True:
+            if rac_file_download.status == True:
+                return jsonify({"status":200, "message":"OK", "rac_path":local_rac_file_path})
+        else:
+            return jsonify({"status":400, "message":"从服务器下载授权申请文件失败！"})
 
 @app.route("/test")
 def test():
@@ -263,18 +334,6 @@ def test1():
     data = request.values
     print(data)
     return redirect("/test")
-# 查看文件夹中是否有文件
-# TBD 文件验证或者文件放在指定版本文件夹
-# def check_imgs(file_path):
-#     global files_to_upload
-#     if(os.path.exists(file_path)):
-#         for img in os.listdir(file_path):
-#             img_local_file_path = file_path + "/" + img
-#             img_to_upload = FileToUpload(img, local_file_path=img_local_file_path, remote_file_path="")
-#             files_to_upload.append(img_to_upload)
-#         return True
-#     else:
-#         return False
 
 class FileToUpload:
     def __init__(self, name, local_file_path, remote_file_path) -> None:
@@ -356,29 +415,53 @@ def exec_shell_command(hostname, username, password, port, shell_command, func_t
     except Exception as e:
         print(e)
 
-def exec_shell_commands(hostname, username, password, port, shell_commands, func_type):
+def exec_shell_commands(hostname, username, password, port, shell_commands, func_type="common"):
     try:
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(AutoAddPolicy())
         ssh_client.connect(hostname=hostname, username=username, password=password, port=port)
-        for command in shell_commands:
+        for i, command in enumerate(shell_commands):
             stdin, stdout, stderr = ssh_client.exec_command(command)
+            is_done = False
+            is_error = False
             while True:
-                if func_type == "install":
-                    lines = stderr.readlines(20)
-                    if lines.__len__() != 0:
-                        print(lines)
-                        ssh_client.close()
+                if func_type == "install_devops":
+                    key_success_words = ["补充编排json信息","镜像文件加载完成"]
+                    lines = stdout.readlines(20)
+                    for line in lines:
+                        socketio.emit("log_on", line)
+                        print(line)
+                        if "Error" in line:
+                            is_error = True
+                            break
+                        for key_success_word in key_success_words:
+                            if key_success_word in line:
+                                if i == len(shell_commands)-1:
+                                    message = {"status":"success"}
+                                    socketio.emit("install_devops", message)
+                                is_done = True
+                                break
+                    if is_error ==True or is_done == True:
                         break
-                lines = stdout.readlines(20)
-                if func_type == "upload":
+                else:
+                    lines = stdout.readlines(20)
                     if lines.__len__() == 0:
                         break
-                for line in lines:
-                    socketio.emit("log_on", line)
+                    for line in lines:
+                        socketio.emit("log_on", line)
+                        if "Error" in line:
+                            is_error = True
+                        print(line)
+                    if is_error == True:
+                        break 
+            if is_error == True:
+                return False
+        ssh_client.close()
+        return True
     except Exception as e:
         print(e)
-
+        ssh_client.close()
+        return False
 
 
 # socket 函数
@@ -392,12 +475,13 @@ def upload_img_socket(data):
     global remote_pangu_auto_install_dir
     global project_info_path
     global manager_node_info
+    global is_in_company
     func_type = "upload"
     print("socket 连接成功，信息：{},检查信息并上传文件。".format(data["data"]))
     
     if manager_node_ip == "":
         return redirect("/")
-    
+
     try:
         port = 22
         # 在远程服务器创建以年月日时分秒（如20220120152559）的文件夹
@@ -434,21 +518,23 @@ def upload_img_socket(data):
             port=port,
             shell_command=command,
             func_type=func_type)
-
+        
+        trans_files =[]
         # 上传project_info文件
         remote_project_info_path = "{}/project_info".format(remote_pangu_auto_install_dir)
         # proj_info_to_load = FileToUpload("project_info", project_info_path, remote_project_info_path)
         # _thread.start_new_thread(proj_info_to_load.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
         proj_info_to_load = TransFile("project_info", project_info_path, remote_project_info_path, manager_node_info, upload_log_print)
+        trans_files.append(proj_info_to_load)
         _thread.start_new_thread(proj_info_to_load.upload)
 
-        trans_files =[]
-        for img in files_to_upload:
-            trans_file = TransFile(img[0], img[1], img[2], manager_node_info, upload_log_print)
-            trans_files.append(trans_file)
-            _thread.start_new_thread(trans_file.upload)
-            # img._remote_file_path = "{}/images/{}".format(remote_pangu_auto_install_dir,img._name)
-            # _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
+        if is_in_company == False:
+            for img in files_to_upload:
+                trans_file = TransFile(img[0], img[1], img[2], manager_node_info, upload_log_print)
+                trans_files.append(trans_file)
+                _thread.start_new_thread(trans_file.upload)
+                # img._remote_file_path = "{}/images/{}".format(remote_pangu_auto_install_dir,img._name)
+                # _thread.start_new_thread(img.upload_file, (manager_node_ip, manager_node_username, manager_node_password,))
         # 上传镜像文件到images文件夹
         # 判断是否所有文件都上传完毕
         is_upload_success = False
@@ -474,13 +560,13 @@ def install_devops_begin():
     global manager_node_password
 
     port = 22
-    func_type = "install"
+    func_type = "install_devops"
     
     if manager_node_ip == "":
         return redirect("/")
     
     if is_in_company == True:
-        command_install = ["installctl -in", "installctl -l"]
+        command_install = ["installctl -in", "installctl -ln"]
     else:
         command_install = ["installctl -i", "installctl -l"]
     exec_shell_commands(hostname=manager_node_ip, username=manager_node_username, password=manager_node_password, port=port, shell_commands=command_install,func_type=func_type)
@@ -509,7 +595,7 @@ def install_begin():
     else:
         command_install = ["installctl -i", "installctl -l"]
         # 产生加密狗授权申请文件
-        command_dongle = "{}/bin/dongle export {} 480"
+        command_dongle = "{}/bin/dongle export 480"
         if is_soft == "true":
             dongle_type = "soft"
             context = "5000468"
