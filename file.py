@@ -73,6 +73,8 @@ def file_check(files_dir, file_type):
         file_types = [".WibuCmRaU"]
     elif file_type == 3:
         file_types = [".devops_license"]
+    elif file_type == 4:
+        file_types = [".zip", ".devops_orch"]
     files = []
     if(os.path.exists(files_dir)):
         return False, files
