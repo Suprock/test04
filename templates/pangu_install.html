@@ -20,6 +20,19 @@
 <div class="install_log pre-scrollable" id="install_log" style="height: 800px; overflow: auto;"></div>
 <div class="file_to_upload pre-scrollable md-3" id="file_to_upload" style="height: 200px; overflow: auto;"></div>
 <div class="file_translate_status pre-scrollable" id="file_translate_stauts" style="height: 200px; overflow: auto;"></div>
+<div class="md-3 mt-3">
+    <div class="md-3" id="div_download_zip">
+        <button class="btn btn-primary" type="button" id="download_zip" onclick="download_zip()">下载编排文件zip</button>
+    </div>
+    <hr>
+    <div class="md-3" id="div_upload_layout_file">
+        <div class="row mt-3">
+            <input class="input-group" type="text" id="layout_file_dir" name="layout_file_dir" placeholder="服务文件文件夹">
+        </div>
+        <div class="row mt-3"><button type="button" class="btn btn-primary" id="upload_lay_out_file" onclick="upload_layout_file()">服务文件上传</button></div>
+        
+    </div>
+</div>
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
@@ -27,6 +40,11 @@
     var socket = io();
     $(document).ready(function()
     {
+        if("{{ is_in_company }}" == "True")
+        {
+            document.getElementById("download_zip").disabled = true;
+            document.getElementById("upload_lay_out_file").disabled = true;
+        }
         $.ajax({
             url: "{{ url_for('install_pangu') }}",
             type: "post",
@@ -35,6 +53,11 @@
                 if(data["status"] == 200)
                 {
                     get_install_log();
+                }
+                if(data["status"==400])
+                {
+                    document.getElementById("download_zip").disabled = true;
+                    document.getElementById("upload_lay_out_file").disabled = true;
                 }
             }
         })
@@ -50,36 +73,32 @@
             var node = document.getElementById("install_log");
             node.innerHTML += "<br>" + res;
         });
-        socket.on("download_rac", function()
-        {
-            window.location.href = "{{ url_for('download_rac') }}"
-        });
-        socket_on("upload_rau", function(){
-            var node_file_to_upload = document.getElementById("file_to_upload");
-            var node_form = document.createElement("form");
-            node_file_to_upload.appendChild(node_form);
-            var node_row1 = document.createElement("div");
-            node_row1.className = "row mt-3"
-            node_row1.innerHTML=' <div class="col-md-3">\
-                    <input type="text" id="rau_path" class="form-control" name="rau" placeholder="请输入rau文件的全路径。">\
-                </div>\
-                ';
-            node_file_to_upload.appendChild(node_row1);
-            var node_row2 = document.createElement("div");
-            node_row2.className = "row mt-3";
-            node_row2.innerHTML = '<div class="col-md-3">\
-                    <button class="btn btn-primary" type="button" onclick="upload_rau()">+</button>\
-                </div>'
-        });
     }
-    function upload_rau()
+
+    function download_zip()
     {
-        var node_rau = document.getElementById("rau_path");
-        rau_path = node_rau.value;
-        var dict = {"rau_path":rau_path};
+        $.ajax({
+            url: "{{ url_for('get_zip_from_server') }}",
+            type: "post",
+            success:function(data)
+            {
+                console.log(data);
+                if(data["status"] == 200)
+                {
+                    window.location.href = "/download_deploy/" + data["deploy_path"]
+                }
+            }
+        })
+    }
+
+    function upload_layout_file()
+    {
+        var node_layout_file_dir = document.getElementById("layout_file_dir");
+        layout_file_path = node_layout_file_dir.value;
+        var dict = {"path":rau_path};
         var json_dict = JSON.stringify(dict);
         $.ajax({
-            url: "{{ url_for('upload_rau') }}",
+            url: "{{ url_for('upload_layout_files') }}",
             type: "post",
             dataType:"json",
             data:json_dict,
@@ -88,7 +107,10 @@
                 console.log(data);
                 if(data["status"] == 200)
                 {
-                    socket.emit("layout_begin");
+                    var node = document.getElementById("div_upload_layout_file");
+                    var tip = document.createElement("label");
+                    tip.innerHTML = "上传文件完毕！";
+                    node.appendChild(tip);
                 }
             }
         });
