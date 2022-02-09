@@ -239,13 +239,43 @@ def auth_cert():
 @app.route("/install_pangu", methods=["POST","GET"])
 def install_pangu():
     global manager_node_info
-    global manager_node_ip
+    global is_in_company
     if request.method == "GET":
         if manager_node_info == None:
             return redirect("/")
         index_info = make_index_info(1, 4)
-        return render_template("pangu_install.html", index_info=index_info)
+        return render_template("pangu_install.html", index_info=index_info, is_in_company=is_in_company)
     else:
+        global manager_node_info
+
+    if is_in_company == False:
+        # 判断本机是否能到达编排服务器
+        layout_addr = "10.122.48.15"
+        ping_ret_pc = ping(layout_addr)
+        # 判断服务器能否到达本机
+        command = "who am i|awk '{print $5}'|sed 's/(//'|sed 's/)//'"
+        commands = [command]
+        ret, ip = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=manager_node_info.port, shell_commands=commands,func_type="ls")
+        if ret == False:
+            socketio.emit("install_false", "获取本机IP失败！")
+            return
+        command = "ping {} -c 1 -q".format(ip)
+        commands = [command]
+        ret, ping_result = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=manager_node_info.port, shell_commands=commands,func_type="ping")
+        if "100% packet loss" in ping_result:
+            ping_ret_server = False
+        else:
+            ping_ret_server = True
+        
+        if ping_ret_server== False or ping_ret_pc==False:
+            return jsonify({"status":400})
+            #TBD 下载压缩包
         return jsonify({"status":200})
         
 @app.route("/tools")
@@ -274,6 +304,14 @@ def download_rac(rac_file_path):
 @app.route("/download_finger/<path:finger_file_path>")
 def download_finger(finger_file_path):
     path = finger_file_path.rsplit("/", 1)
+    file_name = path[-1]
+    dir = path[0]
+    return send_from_directory(dir, file_name, as_attachment=True)
+
+# 前端下载指纹文件
+@app.route("/download_deploy/<path:deploy_file_path>")
+def download_deploy(deploy_file_path):
+    path = deploy_file_path.rsplit("/", 1)
     file_name = path[-1]
     dir = path[0]
     return send_from_directory(dir, file_name, as_attachment=True)
@@ -347,7 +385,7 @@ def get_rac_from_server():
         name = "加密狗授权文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path, path_date)
-        remote_rac_file_path = rac_name.partition("\n")[0]
+        remote_rac_file_path = rac_name
 
         rac_file_download = TransFile(name, local_rac_file_path, remote_rac_file_path, manager_node_info, download_log_print)
         ret = rac_file_download.download()
@@ -391,7 +429,7 @@ def get_finger_from_server():
         name = "指纹文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_finger_file_path = "{}{}/{}.devops_fingerprint".format(file_path, path_date, path_date)
-        remote_finger_file_path = finger_name.partition("\n")[0]
+        remote_finger_file_path = finger_name
 
         finger_file_download = TransFile(name, local_finger_file_path, remote_finger_file_path, manager_node_info, download_log_print)
         ret = finger_file_download.download()
@@ -400,6 +438,31 @@ def get_finger_from_server():
                 return jsonify({"status":200, "message":"OK", "finger_path":local_finger_file_path})
         else:
             return jsonify({"status":400, "message":"从服务器下载授权申请文件失败！"})
+
+# 获取deploy.tar.gz文件
+@app.route("/get_deploy_from_server", methods=["POST"])
+def get_deploy_from_server():
+    global manager_node_info
+    global file_path
+    global remote_pangu_auto_install_dir
+
+    # 下载deploy.tar.gz文件
+    name = "deploy.tar.gz文件下载"
+    file_name = "deploy.tar.gz"
+
+    def download_log_print(func_type, name, bytes, total_btyes):
+        socketio.emit("download_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+
+    path_date = time.strftime("%Y%m%d", time.localtime())
+    local_deploy_file_path = "{}{}/{}.devops_fingerprint".format(file_path, path_date, path_date)
+    remote_deploy_file_path = "{}/{}".format(remote_pangu_auto_install_dir, file_name)
+    file_to_downlowd = TransFile(name, local_deploy_file_path, remote_deploy_file_path, manager_node_info, download_log_print)
+    ret = file_to_downlowd.download()
+    if ret == True:
+        return jsonify({"status":200, "message":"OK", "deploy_path":local_deploy_file_path})
+    else:
+        return jsonify({"status":400, "message":"从服务器下载deploy.tar.gz文件失败！"})
+
 
 # 更新指纹文件
 @app.route("/upload_cert", methods=["POST"])
@@ -434,6 +497,32 @@ def upload_cert():
         else:
             return jsonify({"status":200, "result":"升级证书成功！"})
     pass
+
+# 上传服务文件
+@app.route("/upload_layout_files", methods=["POST"])
+def upload_layout_files():
+    global remote_pangu_auto_install_dir
+    global manager_node_info
+    if request.method == "POST":
+        data = request.get_json()
+        path = data["path"]
+        ret, files = file_check(path)
+        if ret == False:
+            return jsonify({"status":400, "message":"不存在此文件夹"})
+        files_to_upload = []
+
+        def upload_log_print(func_type, name, bytes, total_btyes):
+            socketio.emit("upload_finger_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+
+        for file in files:
+            remote_file_path = "{}/layout/{}".format(remote_pangu_auto_install_dir, file[0])
+            file_to_upload = TransFile(file[0], file[1], remote_file_path, manager_node_info, upload_log_print)
+            files_to_upload.append(file_to_upload)
+            file_to_upload.upload()
+        
+        return jsonify({"status":200, "message":"上传完毕"})
+        
+        
 
 @app.route("/test")
 def test():
@@ -478,7 +567,15 @@ def exec_shell_commands(hostname, username, password, port, shell_commands, func
                 elif func_type == "ls":
                     lines = stdout.readlines(20)
                     if lines.__len__() != 0:
-                        return True, lines[0]
+                        # 去掉数据中的回车符
+                        return True, lines[0].partition("\n")[0]      
+                elif func_type == "ping":
+                    lines = stdout.readlines(20)
+                    for line in lines:
+                        if "1 packets transmitted" in line:
+                            return True, line.partition("\n")[0]
+                elif func_type == "install_pangu":
+                    pass
                 else:
                     lines = stdout.readlines(20)
                     if lines.__len__() == 0:
@@ -614,21 +711,21 @@ def install_devops_begin():
     
     
 @socketio.on("install_begin")
-def install_begin():
-    global is_in_company
+def install_begin(index):
     global remote_pangu_auto_install_dir
-    global is_soft
-    global dongle_ip  
-    global file_path
-    global rac_file_path
     global manager_node_info
+    if index == 1:
+        command = "installctl -LIcD"
+    elif index == 2:
+        command = "installctl -IcD"
+    commands = [command]
+    exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+    username=manager_node_info.manager_node_username,
+    password=manager_node_info.manager_node_password,
+    port=manager_node_info.port, shell_commands=commands,func_type="install_pangu")
 
-    if manager_node_ip == "":
-        return redirect("/")
     
-    # TBD 判断本机是否能到达编排服务器
-    # TBD 判断服务器能否到达本机
-    # 上述判断一个为否，则下载压缩包
+
 
 
         
