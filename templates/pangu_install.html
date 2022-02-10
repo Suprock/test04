@@ -17,9 +17,6 @@
 </ul>
 {% endblock %}
 {% block content %}
-<div class="install_log pre-scrollable" id="install_log" style="height: 800px; overflow: auto;"></div>
-<div class="file_to_upload pre-scrollable md-3" id="file_to_upload" style="height: 200px; overflow: auto;"></div>
-<div class="file_translate_status pre-scrollable" id="file_translate_stauts" style="height: 200px; overflow: auto;"></div>
 <div class="md-3 mt-3">
     <div class="md-3" id="div_download_zip">
         <button class="btn btn-primary" type="button" id="download_zip" onclick="download_zip()">下载编排文件zip</button>
@@ -33,6 +30,7 @@
         
     </div>
 </div>
+<div class="install_log pre-scrollable" id="install_log" style="height: 800px; overflow: auto;"></div>
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
@@ -56,17 +54,27 @@
                 }
                 if(data["status"==400])
                 {
-                    document.getElementById("download_zip").disabled = true;
-                    document.getElementById("upload_lay_out_file").disabled = true;
+                    document.getElementById("download_zip").disabled = false;
+                    document.getElementById("upload_lay_out_file").disabled = false;
                 }
             }
         })
     })
     function get_install_log()
     {
+        var is_disable = document.getElementById("download_zip").disabled;
+        var index;
+        if(is_disable)
+        {
+            index = 1
+        }
+        else
+        {
+            index = 2
+        }
         socket.on("connect", function()
         {
-            socket.emit("install_begin");
+            socket.emit("install_begin", index);
         });
         socket.on("log_on", function(res)
         {
@@ -78,7 +86,7 @@
     function download_zip()
     {
         $.ajax({
-            url: "{{ url_for('get_zip_from_server') }}",
+            url: "{{ url_for('get_deploy_from_server') }}",
             type: "post",
             success:function(data)
             {
