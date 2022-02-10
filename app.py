@@ -44,10 +44,11 @@ class ManagerNodeInfo:
         self.manager_node_ip = manager_node_ip
         self.manager_node_username = manager_node_username
         self.manager_node_password = manager_node_password
-        self.prot = port
+        self.port = port
 
 manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
 proj_name = "test20220209"
+is_in_company = True
 
 ###
 # topic  值1：盘古自动部署工具；
@@ -246,37 +247,36 @@ def install_pangu():
         index_info = make_index_info(1, 4)
         return render_template("pangu_install.html", index_info=index_info, is_in_company=is_in_company)
     else:
-        global manager_node_info
-
-    if is_in_company == False:
-        # 判断本机是否能到达编排服务器
-        layout_addr = "10.122.48.15"
-        ping_ret_pc = ping(layout_addr)
-        # 判断服务器能否到达本机
-        command = "who am i|awk '{print $5}'|sed 's/(//'|sed 's/)//'"
-        commands = [command]
-        ret, ip = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
-        username=manager_node_info.manager_node_username,
-        password=manager_node_info.manager_node_password,
-        port=manager_node_info.port, shell_commands=commands,func_type="ls")
-        if ret == False:
-            socketio.emit("install_false", "获取本机IP失败！")
-            return
-        command = "ping {} -c 1 -q".format(ip)
-        commands = [command]
-        ret, ping_result = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
-        username=manager_node_info.manager_node_username,
-        password=manager_node_info.manager_node_password,
-        port=manager_node_info.port, shell_commands=commands,func_type="ping")
-        if "100% packet loss" in ping_result:
-            ping_ret_server = False
+        if is_in_company == False:
+            # 判断本机是否能到达编排服务器
+            layout_addr = "10.122.48.15"
+            ping_ret_pc = ping(layout_addr)
+            # 判断服务器能否到达本机
+            command = "who am i|awk '{print $5}'|sed 's/(//'|sed 's/)//'"
+            commands = [command]
+            ret, ip = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+            username=manager_node_info.manager_node_username,
+            password=manager_node_info.manager_node_password,
+            port=manager_node_info.port, shell_commands=commands,func_type="ls")
+            if ret == False:
+                socketio.emit("install_false", "获取本机IP失败！")
+                return
+            command = "ping {} -c 1 -q".format(ip)
+            commands = [command]
+            ret, ping_result = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+            username=manager_node_info.manager_node_username,
+            password=manager_node_info.manager_node_password,
+            port=manager_node_info.port, shell_commands=commands,func_type="ping")
+            if "100% packet loss" in ping_result:
+                ping_ret_server = False
+            else:
+                ping_ret_server = True
+            
+            if ping_ret_server== False or ping_ret_pc==False:
+                return jsonify({"status":400})
+            return jsonify({"status":200})
         else:
-            ping_ret_server = True
-        
-        if ping_ret_server== False or ping_ret_pc==False:
-            return jsonify({"status":400})
-            #TBD 下载压缩包
-        return jsonify({"status":200})
+            return jsonify({"status":200})
         
 @app.route("/tools")
 def tools():
