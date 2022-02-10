@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}信息下载{% endblock %}
+{% block steps %}
+<ul class="nav nav-pills flex-column" style="height: 700px;">
+    {% for step in index_info.steps %}
+        <li class="nav-item">
+            {% if step.is_active == True %}
+                <div class="nav-link active" aria-current="page">
+            {% else %}
+                <div class="nav-link" aria-current="page">
+            {% endif %}
+            <svg class="bi me-2" width="16" height="16"></svg>
+            {{ step.name }}
+            </div>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
+{% block content %}
+<div class="md-3" id="div_download_zip">
+    <div class="row mt-3"><button class="btn btn-primary" type="button" id="download_deploy_info" onclick="download_deploy_info()">下载编排文件zip</button></div>
+</div>
+<div class="md-3" id="div_download_zip">
+    <div class="row mt-3"><label id="lb_tips"></label></div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+<script>
+    var socket = io();
+    function download_deploy_info(){
+        $.ajax({
+            url:"{{ url_for('download_deploy_info') }}",
+            type:"post",
+            success:function(data)
+            {
+                console.log(data);
+                if(data["status"] == 200)
+                {
+                    window.location.href = "/download_deploy/" + data["deploy_path"];
+                }
+                if(data["status"] == 400)
+                {
+                    document.getElementById("lb_tips").innerHTML = "下载文件失败！";
+                }
+            }
+        })
+    }
+</script>
+{% endblock %}
