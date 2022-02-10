@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}上传镜像{% endblock %}
+{% block title %}部署盘古{% endblock %}
 {% block steps %}
 <ul class="nav nav-pills flex-column" style="height: 700px;">
     {% for step in index_info.steps %}
@@ -19,7 +19,7 @@
 {% block content %}
 <div class="md-3 mt-3">
     <div class="md-3" id="div_download_zip">
-        <button class="btn btn-primary" type="button" id="download_zip" onclick="download_zip()">下载编排文件zip</button>
+        <div class="row mt-3"><button class="btn btn-primary" type="button" id="download_zip" onclick="download_zip()">下载编排文件zip</button></div>
     </div>
     <hr>
     <div class="md-3" id="div_upload_layout_file">
@@ -27,15 +27,18 @@
             <input class="input-group" type="text" id="layout_file_dir" name="layout_file_dir" placeholder="服务文件文件夹">
         </div>
         <div class="row mt-3"><button type="button" class="btn btn-primary" id="upload_lay_out_file" onclick="upload_layout_file()">服务文件上传</button></div>
-        
+    </div>
+    <div class="md-3">
+        <div class="row mt-3" id="start_install"></div>
     </div>
 </div>
-<div class="install_log pre-scrollable" id="install_log" style="height: 800px; overflow: auto;"></div>
+<div class="md-3 install_log pre-scrollable" id="install_log" style="height: 600px; overflow: auto;"></div>
+<div id="goto_next"></div>
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script>
-    var socket = io();
+    
     $(document).ready(function()
     {
         if("{{ is_in_company }}" == "True")
@@ -50,7 +53,8 @@
             {
                 if(data["status"] == 200)
                 {
-                    get_install_log();
+                    var div = document.getElementById("start_install");
+                    div.innerHTML = '<button class="btn btn-primary" type="button" id="btn_start_install" onclick="get_install_log()">开始安装盘古</button>';
                 }
                 if(data["status"==400])
                 {
@@ -62,8 +66,9 @@
     })
     function get_install_log()
     {
+        var socket = io();
         var is_disable = document.getElementById("download_zip").disabled;
-        var index;
+        var index = 0;
         if(is_disable)
         {
             index = 1
@@ -81,6 +86,14 @@
             var node = document.getElementById("install_log");
             node.innerHTML += "<br>" + res;
         });
+        socket.on("install_success", function(res){
+            var div = document.getElementById("goto_next");
+            div.innerHTML = '<button class="btn btn-primary" type="button" id="btn_goto_next" onclick="goto_next()">下一步</button>';
+        });
+    }
+
+    function goto_next(){
+        window.location.href = "{{ url_for('download_deploy_info') }}"
     }
 
     function download_zip()
@@ -103,13 +116,15 @@
     {
         var node_layout_file_dir = document.getElementById("layout_file_dir");
         layout_file_path = node_layout_file_dir.value;
-        var dict = {"path":rau_path};
+        layout_file_path.replace(/\\/g, '\\\\');
+        var dict = {"path":layout_file_path};
         var json_dict = JSON.stringify(dict);
         $.ajax({
             url: "{{ url_for('upload_layout_files') }}",
             type: "post",
             dataType:"json",
             data:json_dict,
+            contentType:"application/json",
             success:function(data)
             {
                 console.log(data);
@@ -119,6 +134,8 @@
                     var tip = document.createElement("label");
                     tip.innerHTML = "上传文件完毕！";
                     node.appendChild(tip);
+                    var div = document.getElementById("start_install");
+                    div.innerHTML = '<button class="btn btn-primary" type="button" id="btn_start_install" onclick="get_install_log()">开始安装盘古</button>';
                 }
             }
         });
