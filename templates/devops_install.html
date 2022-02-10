@@ -27,7 +27,7 @@
 {% block js %}
 <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script>
-    socket = io();
+    var socket = io();
     $(document).ready(function(){
         $.ajax({
             url: "{{ url_for('install_devops') }}",
@@ -45,23 +45,24 @@
     {
         socket.on("connect", function()
         {
-            socket.emit("install_devops");
+            socket.emit("install_devops_begin");
         });
         socket.on("log_on", function(res)
         {
             var node = document.getElementById("install_log");
             node.innerHTML += "<br>" + res;
         });
-        socket.on("install_devops", function(res){
+        socket.on("install_devops_status", function(res){
             if(res["status"]=="success")
             {
                 var node = document.getElementById("btn-next");
-                node.innerHTML = '<button type="button" class="btn btn-primary" onclick="goto_auth_cert()">下一步</button>'
+                node.innerHTML = '<button type="button" class="btn btn-primary" onclick="goto_auth_cert()">下一步</button>';
             }
-        })
+        });
     }
     function goto_auth_cert()
     {
+        socket.close();
         window.location.href = "{{ url_for('auth_cert') }}";
     }
 </script>
