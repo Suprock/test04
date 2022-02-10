@@ -46,9 +46,9 @@ class ManagerNodeInfo:
         self.manager_node_password = manager_node_password
         self.port = port
 
-manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
-proj_name = "test20220209"
-is_in_company = True
+# manager_node_info = ManagerNodeInfo("10.122.112.75", "security", "securityM014800012008000100")
+# proj_name = "test20220209"
+# is_in_company = True
 
 ###
 # topic  值1：盘古自动部署工具；
@@ -277,7 +277,46 @@ def install_pangu():
             return jsonify({"status":200})
         else:
             return jsonify({"status":200})
-        
+
+@app.route("/download_deploy_info", methods=["POST","GET"])
+def download_deploy_info():
+    global manager_node_info
+    global remote_pangu_auto_install_dir
+    global file_path
+    global proj_name
+    if request.method == "GET":
+        if manager_node_info == None:
+            return redirect("/")
+        index_info = make_index_info(1, 5)
+        return render_template("download_deploy_info.html", index_info=index_info)
+    else:
+        file_name = "deploy_info.tar.gz"
+        # 生成压缩包
+        command = "tar -zcvf {} {}/deploy.tar.gz {}/layout".format(file_name, remote_pangu_auto_install_dir, remote_pangu_auto_install_dir)
+        commands = [command]
+        ret = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
+        username=manager_node_info.manager_node_username,
+        password=manager_node_info.manager_node_password,
+        port=manager_node_info.port, shell_commands=commands)
+        if ret == False:
+            return jsonify({"status":400, "message":"生成文件失败！"})
+        # 下载压缩包
+
+        def download_log_print(func_type, name, bytes, total_btyes):
+            socketio.emit("download_status", {"filename":name, "bytes":bytes, "max_bytes":total_btyes})
+        path_date = time.strftime("%Y%m%d", time.localtime())
+        if os.path.exists("{}{}/{}".format(file_path, path_date, proj_name)) == False:
+            os.makedirs("{}{}/{}".format(file_path, path_date, proj_name))
+        local_file_path = "{}{}/{}/{}".format(file_path, path_date,proj_name, file_name)
+        remote_file_path = file_name
+        file_to_download = TransFile(file_name, local_file_path, remote_file_path, manager_node_info, download_log_print)
+        ret = file_to_download.download()
+        if ret == True:
+            return jsonify({"status":200, "deploy_path":local_file_path})
+        else:
+            return jsonify({"status":400})
+
+
 @app.route("/tools")
 def tools():
     index_info = make_index_info(2, 0)
@@ -385,7 +424,7 @@ def get_rac_from_server():
         name = "加密狗授权文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_rac_file_path = "{}{}/480.WibuCmRac".format(file_path, path_date)
-        remote_rac_file_path = rac_name
+        remote_rac_file_path = remote_pangu_auto_install_dir+"/"+rac_name
 
         rac_file_download = TransFile(name, local_rac_file_path, remote_rac_file_path, manager_node_info, download_log_print)
         ret = rac_file_download.download()
@@ -429,7 +468,7 @@ def get_finger_from_server():
         name = "指纹文件下载"
         path_date = time.strftime("%Y%m%d", time.localtime())
         local_finger_file_path = "{}{}/{}.devops_fingerprint".format(file_path, path_date, path_date)
-        remote_finger_file_path = finger_name
+        remote_finger_file_path = remote_pangu_auto_install_dir+"/"+finger_name
 
         finger_file_download = TransFile(name, local_finger_file_path, remote_finger_file_path, manager_node_info, download_log_print)
         ret = finger_file_download.download()
@@ -478,7 +517,7 @@ def upload_cert():
     if request.method == "POST":
         data = request.get_json()
         cert_path = data["path"]
-        cert_name = os.path.splitext(cert_path)[-1]
+        cert_name = cert_path.rsplit("\\", 1)[-1]
         remote_cert_path = cert_name
         # 上传指纹文件
         cert_to_upload = TransFile(cert_name, cert_path, remote_cert_path, manager_node_info, upload_log_print)
@@ -559,7 +598,7 @@ def exec_shell_commands(hostname, username, password, port, shell_commands, func
                             if key_success_word in line:
                                 if i == len(shell_commands)-1:
                                     message = {"status":"success"}
-                                    socketio.emit("install_devops", message)
+                                    socketio.emit("install_devops_status", message)
                                 is_done = True
                                 break
                     if is_error ==True or is_done == True:
@@ -575,7 +614,23 @@ def exec_shell_commands(hostname, username, password, port, shell_commands, func
                         if "1 packets transmitted" in line:
                             return True, line.partition("\n")[0]
                 elif func_type == "install_pangu":
-                    pass
+                    global proj_name
+                    key_success_word = "成功部署 {}.pangu-safeguard-utility".format(proj_name)
+                    lines = stdout.readlines(20)
+                    for line in lines:
+                        socketio.emit("log_on", line)
+                        print(line)
+                        if "Error" in line:
+                            is_error = True
+                            break
+                        if key_success_word in line:
+                            if i == len(shell_commands)-1:
+                                message = {"status":"success"}
+                                socketio.emit("install_success", message)
+                            is_done = True
+                            break
+                    if is_error ==True or is_done == True:
+                        break
                 else:
                     lines = stdout.readlines(20)
                     if lines.__len__() == 0:
@@ -619,14 +674,14 @@ def upload_img_socket(data):
         port = 22
         # 在远程服务器创建以年月日时分秒（如20220120152559）的文件夹
         timestamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        remote_file_dir = "/home/security/{}/".format(timestamp)
+        remote_file_dir = "{}".format(timestamp)
         command_mkdir_remote_file_dir = "mkdir {}".format(remote_file_dir)
         commands = [command_mkdir_remote_file_dir]
         ret = exec_shell_commands(hostname=manager_node_info.manager_node_ip,
         username=manager_node_info.manager_node_username,
         password=manager_node_info.manager_node_password,
         port=manager_node_info.port,
-        shell_command=commands,
+        shell_commands=commands,
         func_type=func_type)
         if ret == False:
             message = {"message":"远程创建文件失败！"}
@@ -651,7 +706,7 @@ def upload_img_socket(data):
             username=manager_node_info.manager_node_username,
             password=manager_node_info.manager_node_password,
             port=manager_node_info.port,
-            shell_command=commands,
+            shell_commands=commands,
             func_type=func_type)
         if ret == False:
             message = {"message":"对工具解压缩以及初始化操作失败！"}
@@ -687,7 +742,7 @@ def upload_img_socket(data):
     except Exception as e:
         print("有错误{}".format(e))
 
-@socketio.on("install_devops")
+@socketio.on("install_devops_begin")
 def install_devops_begin():
     global is_in_company
     global manager_node_ip
@@ -724,10 +779,6 @@ def install_begin(index):
     password=manager_node_info.manager_node_password,
     port=manager_node_info.port, shell_commands=commands,func_type="install_pangu")
 
-    
-
-
-
         
 @socketio.on("layout_begin")
 def layout_begin():
@@ -747,10 +798,10 @@ if __name__ == "__main__":
     socketio.run(app)
 
 core_sevices = {
-    "1":"faced-video",
-    "2":"faced-capture",
-    "3":"videod-engine",
-    "4":"videod-capture",
+    "1":"facedvideo",
+    "2":"facedcapture",
+    "3":"videodengine",
+    "4":"videodcapture",
     "5":"algowarehouseA",
     "6":"algowarehouseB",
     "7":"archer",
