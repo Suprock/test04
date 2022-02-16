@@ -76,7 +76,7 @@ def file_check(files_dir, file_type):
     elif file_type == 4:
         file_types = [".zip", ".devops_orch"]
     files = []
-    if(os.path.exists(files_dir)):
+    if(os.path.exists(files_dir) == False):
         return False, files
     for file in os.listdir(files_dir):
         for type in file_types:
