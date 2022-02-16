@@ -46,7 +46,8 @@
                 <option value="1.0.5rc1">1.0.5RC1</option>
                 <option value="1.0.6rc3">1.0.6RC3</option>
                 <option value="1.0.6.1">1.0.6.1</option>
-                <option value="1.1.0rc1" selected>1.1.0RC01</option>
+                <option value="1.1.0rc1">1.1.0RC01</option>
+                <option value="1.1.0rc2" selected>1.1.0RC02</option>
             </select>
         </div>
     </div>
@@ -308,26 +309,26 @@ function from_submit(obj)
             alert("请填写服务所占显卡数目！");
             return;
         }
-        if(node_service_info[0].firstElementChild.value == "5" && algowarehouseA == "")
-        {
-            alert("请填写警戒算法仓的镜像名称！");
-            return;
-        }
-        if(node_service_info[0].firstElementChild.value == "6" && algowarehouseB == "")
-        {
-            alert("请填写安监算法仓的镜像名称！");
-            return;
-        }
-        if(node_service_info[0].firstElementChild.value == "8" && algowarehouseC == "")
-        {
-            alert("请填写物品算法仓的镜像名称！");
-            return;
-        }
-        if(node_service_info[0].firstElementChild.value == "9" && algowarehouseD == "")
-        {
-            alert("请填写人数统计算法仓的镜像名称！");
-            return;
-        }
+        // if(node_service_info[0].firstElementChild.value == "5" && algowarehouseA == "")
+        // {
+        //     alert("请填写警戒算法仓的镜像名称！");
+        //     return;
+        // }
+        // if(node_service_info[0].firstElementChild.value == "6" && algowarehouseB == "")
+        // {
+        //     alert("请填写安监算法仓的镜像名称！");
+        //     return;
+        // }
+        // if(node_service_info[0].firstElementChild.value == "8" && algowarehouseC == "")
+        // {
+        //     alert("请填写物品算法仓的镜像名称！");
+        //     return;
+        // }
+        // if(node_service_info[0].firstElementChild.value == "9" && algowarehouseD == "")
+        // {
+        //     alert("请填写人数统计算法仓的镜像名称！");
+        //     return;
+        // }
         console.log(node_service_info[1].innerHTML);
         var service_info = [core_server_name, server_num];
         arr_service_info.push(service_info);
